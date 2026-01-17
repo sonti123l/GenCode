@@ -1,6 +1,7 @@
 import { FileNode } from "@/helpers/interfaces/file-types";
 import FileSystemRepresentation from "../core/FileSystemRepresentation";
 import Options from "../core/Options";
+import CodeEditorPage from "../core/CodeEditorPage";
 
 export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
   return (
@@ -9,11 +10,13 @@ export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
         <Options />
       </div>
       <div className="flex">
-        <div className="h-full border border-white w-80">
+        <div className="h-full w-80">
           <FileSystemRepresentation tree={tree} />
         </div>
-        <div className="h-full border border-white w-200"></div>
-        <div className="h-full border border-white w-92"></div>
+        <div className="h-full w-200">
+          <CodeEditorPage/>
+        </div>
+        <div className="h-full w-92"></div>
       </div>
     </div>
   );

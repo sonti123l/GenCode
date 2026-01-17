@@ -16,7 +16,7 @@ export default function AppSidebar({ options }: { options: any }) {
   };
   return (
     <Sidebar className="w-12 border-none">
-      <SidebarContent className="bg-[#3d3e3e] ">
+      <SidebarContent className="bg-[#3d3e3e]">
         <SidebarGroup>
           <div className="flex flex-col gap-3 w-full">
             {options?.map(

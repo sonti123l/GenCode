@@ -14,32 +14,49 @@ pub struct DirEntryInfo {
     pub name: String,
     pub path: String,
     pub is_dir: bool,
+    pub children: Option<Vec<DirEntryInfo>>,
 }
 
 
-#[tauri::command]
-fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String>{
+fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
+    let mut entries = Vec::new();
 
-     let dir = Path::new(&path);
-
-         if !dir.exists() {
-        return Err("Directory does not exist".into());
-    }
-
-
-     let mut entries = Vec::new();
-  for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+    for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
         let metadata = entry.metadata().map_err(|e| e.to_string())?;
+
+        let children = if metadata.is_dir() {
+            Some(read_dir_recursive(&path)?)
+        } else {
+            None
+        };
 
         entries.push(DirEntryInfo {
             name: entry.file_name().to_string_lossy().to_string(),
-            path: entry.path().to_string_lossy().to_string(),
+            path: path.to_string_lossy().to_string(),
             is_dir: metadata.is_dir(),
+            children,
         });
     }
 
     Ok(entries)
+}
+
+
+
+
+#[tauri::command]
+fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
+
+     let dir = Path::new(path);
+
+    if !dir.exists() {
+        return Err("Directory does not exist".into());
+    }
+
+    read_dir_recursive(dir)
+
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

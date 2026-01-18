@@ -113,6 +113,21 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* In your global CSS file (e.g., globals.css or index.css) */
+html, body {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

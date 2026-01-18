@@ -8,8 +8,7 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct DirEntryInfo {
     pub name: String,
     pub path: String,
@@ -17,21 +16,34 @@ pub struct DirEntryInfo {
     pub children: Option<Vec<DirEntryInfo>>,
 }
 
-
 fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
+    eprintln!("Reading directory: {}", dir.display());
+    
     let mut entries = Vec::new();
-
-    for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
+    
+    for entry in fs::read_dir(dir).map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))? {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
-        let metadata = entry.metadata().map_err(|e| e.to_string())?;
-
+        let metadata = entry.metadata().map_err(|e| format!("Failed to read metadata for {}: {}", path.display(), e))?;
+        
+        eprintln!("  Found: {} (is_dir: {})", path.display(), metadata.is_dir());
+        
         let children = if metadata.is_dir() {
-            Some(read_dir_recursive(&path)?)
+            eprintln!("    Recursing into: {}", path.display());
+            match read_dir_recursive(&path) {
+                Ok(child_entries) => {
+                    eprintln!("    Found {} children in {}", child_entries.len(), path.display());
+                    Some(child_entries)
+                }
+                Err(e) => {
+                    eprintln!("    Warning: Failed to read subdirectory {}: {}", path.display(), e);
+                    Some(Vec::new()) // Return empty vec instead of failing
+                }
+            }
         } else {
             None
         };
-
+        
         entries.push(DirEntryInfo {
             name: entry.file_name().to_string_lossy().to_string(),
             path: path.to_string_lossy().to_string(),
@@ -39,24 +51,29 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
             children,
         });
     }
-
+    
+    eprintln!("Directory {} returned {} entries", dir.display(), entries.len());
     Ok(entries)
 }
 
-
-
-
 #[tauri::command]
 fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
-
-     let dir = Path::new(path);
+    eprintln!("read_directory called with path: {}", path);
+    
+    let dir = Path::new(path);
 
     if !dir.exists() {
-        return Err("Directory does not exist".into());
+        return Err(format!("Directory does not exist: {}", path));
     }
 
-    read_dir_recursive(dir)
+    if !dir.is_dir() {
+        return Err(format!("Path is not a directory: {}", path));
+    }
 
+    let result = read_dir_recursive(dir)?;
+    eprintln!("Total entries at root level: {}", result.len());
+    
+    Ok(result)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

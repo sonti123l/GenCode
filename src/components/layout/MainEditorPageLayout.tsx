@@ -10,11 +10,11 @@ export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
         <Options />
       </div>
       <div className="flex">
-        <div className="h-full w-80">
+        <div className="h-full w-80 overflow-y-auto">
           <FileSystemRepresentation tree={tree} />
         </div>
         <div className="h-full w-200">
-          <CodeEditorPage/>
+          <CodeEditorPage />
         </div>
         <div className="h-full w-92"></div>
       </div>

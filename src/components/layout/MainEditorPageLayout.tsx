@@ -11,7 +11,7 @@ export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
       </div>
 
       <div className="h-full flex flex-1">
-        <div className="h-full w-[260px] bg-[#181818]">
+        <div className="h-full w-65 bg-[#181818]">
           <FileSystemRepresentation tree={tree} />
         </div>
 

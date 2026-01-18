@@ -12,9 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "GEN CODE",
-        "width": 1000,
-        "height": 1600
+        "decorations": false
       }
     ],
     "security": {

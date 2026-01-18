@@ -1,13 +1,12 @@
 import { FileNode } from "@/helpers/interfaces/file-types";
 import { FileTree } from "../rootfiles/files/FileTree";
-import { ScrollArea } from "../ui/scroll-area";
 
 export default function FileSystemRepresentation({ tree }: { tree: FileNode }) {
   return (
-    <ScrollArea className="h-screen border-r border-gray-800">
-      <div>
+    <div className="h-full overflow-y-auto bg-[#181818] text-gray-300 scrollbar-thin">
+      <div className="py-2">
         <FileTree node={tree} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }

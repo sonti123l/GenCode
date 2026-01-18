@@ -16,6 +16,12 @@ pub struct DirEntryInfo {
     pub children: Option<Vec<DirEntryInfo>>,
 }
 
+#[tauri::command]
+fn read_file_content(path: &str) -> Result<String, String> {
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+
 fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
     eprintln!("Reading directory: {}", dir.display());
     
@@ -57,6 +63,11 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
 }
 
 #[tauri::command]
+fn write_file_content(path: &str, content: &str) -> Result<(), String> {
+    fs::write(path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
     eprintln!("read_directory called with path: {}", path);
     
@@ -81,7 +92,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, read_directory])
+        .invoke_handler(tauri::generate_handler![greet, read_directory, read_file_content, write_file_content])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -3,38 +3,32 @@ import { Sidebar, SidebarContent, SidebarGroup } from "../ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 export default function AppSidebar({ options }: { options: any }) {
-  const [defaultSelectOption, setDefaultSelectionOption] = useState<
-    string | "Folders" | "Reports"
-  >("Folders");
+  const [selected, setSelected] = useState("Folders");
 
-  const handleSelection = (value: string) => {
-    if (value === "Folders") {
-      setDefaultSelectionOption("Folders");
-    } else {
-      setDefaultSelectionOption("Reports");
-    }
-  };
   return (
-    <Sidebar className="w-12 border-none">
-      <SidebarContent className="bg-[#3d3e3e]">
+    <Sidebar className="w-12 border-none bg-[#333333]">
+      <SidebarContent className="bg-[#333333]">
         <SidebarGroup>
-          <div className="flex flex-col gap-3 w-full">
-            {options?.map(
-              (eachItem: { menuItem: string; icon: any }, index: number) => (
-                <div
-                  key={index}
-                  className={`mt-4`}
-                  onClick={() => handleSelection(eachItem.menuItem)}
-                >
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <eachItem.icon className="w-7 h-7 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={8}>
-                      {eachItem.menuItem}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+          <div className="flex flex-col items-center gap-4 mt-4">
+            {options.map(
+              (item: { menuItem: string; icon: any }, index: number) => (
+                <Tooltip key={index}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setSelected(item.menuItem)}
+                      className={`p-2 rounded-md ${
+                        selected === item.menuItem
+                          ? "bg-white/20"
+                          : "hover:bg-white/10"
+                      }`}
+                    >
+                      <item.icon className="w-6 h-6 text-gray-300" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {item.menuItem}
+                  </TooltipContent>
+                </Tooltip>
               ),
             )}
           </div>

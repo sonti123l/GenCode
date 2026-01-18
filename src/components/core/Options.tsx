@@ -4,7 +4,7 @@ import AppSidebar from "./AppSidebar";
 
 export default function Options() {
   return (
-    <SidebarProvider className="w-12" defaultOpen>
+    <SidebarProvider defaultOpen>
       <AppSidebar options={menuItems} />
     </SidebarProvider>
   );

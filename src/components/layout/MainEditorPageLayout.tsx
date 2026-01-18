@@ -5,18 +5,19 @@ import CodeEditorPage from "../core/CodeEditorPage";
 
 export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
   return (
-    <div className="h-full flex">
-      <div className="h-full">
+    <div className="h-full flex w-full">
+      <div className="h-full w-12 bg-[#333333]">
         <Options />
       </div>
-      <div className="flex">
-        <div className="h-full w-80 overflow-y-auto">
+
+      <div className="h-full flex flex-1">
+        <div className="h-full w-[260px] bg-[#181818]">
           <FileSystemRepresentation tree={tree} />
         </div>
-        <div className="h-full w-200">
+
+        <div className="h-full flex-1 bg-[#1e1e1e]">
           <CodeEditorPage />
         </div>
-        <div className="h-full w-92"></div>
       </div>
     </div>
   );

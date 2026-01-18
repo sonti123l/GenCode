@@ -12,7 +12,7 @@ export default function App() {
   });
 
   return (
-    <div className="flex h-screen w-screen overflow-y-hidden bg-[#11151cf4] text-white">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#11151c] text-white">
       {tree.name ? (
         <MainEditorPageLayout tree={tree} />
       ) : (

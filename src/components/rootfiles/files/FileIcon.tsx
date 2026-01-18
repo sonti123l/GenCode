@@ -92,7 +92,6 @@ export function FileIcon({
   const fullName = fileName.toLowerCase();
 
   const iconMap: Record<string, JSX.Element> = {
-    // JavaScript/TypeScript/Node
     js: <SiJavascript className="h-4 w-4 text-yellow-400" />,
     mjs: <SiJavascript className="h-4 w-4 text-yellow-400" />,
     cjs: <SiJavascript className="h-4 w-4 text-yellow-400" />,
@@ -100,7 +99,6 @@ export function FileIcon({
     ts: <SiTypescript className="h-4 w-4 text-blue-500" />,
     tsx: <SiReact className="h-4 w-4 text-blue-400" />,
 
-    // Web (HTML/CSS/Frameworks)
     html: <SiHtml5 className="h-4 w-4 text-orange-500" />,
     htm: <SiHtml5 className="h-4 w-4 text-orange-500" />,
     css: <SiCss3 className="h-4 w-4 text-blue-500" />,
@@ -110,7 +108,6 @@ export function FileIcon({
     vue: <SiVuedotjs className="h-4 w-4 text-green-500" />,
     svelte: <SiSvelte className="h-4 w-4 text-orange-600" />,
 
-    // Config/Data files
     json: <VscJson className="h-4 w-4 text-yellow-500" />,
     yaml: <SiYaml className="h-4 w-4 text-red-500" />,
     yml: <SiYaml className="h-4 w-4 text-red-500" />,
@@ -119,13 +116,11 @@ export function FileIcon({
     ini: <FaFileCode className="h-4 w-4 text-gray-400" />,
     env: <FaFileCode className="h-4 w-4 text-yellow-600" />,
 
-    // Markdown/Documentation
     md: <SiMarkdown className="h-4 w-4 text-blue-400" />,
     mdx: <SiMarkdown className="h-4 w-4 text-blue-400" />,
     txt: <VscFile className="h-4 w-4 text-gray-400" />,
     pdf: <FaFilePdf className="h-4 w-4 text-red-500" />,
 
-    // Programming Languages
     py: <SiPython className="h-4 w-4 text-blue-400" />,
     pyc: <SiPython className="h-4 w-4 text-blue-400" />,
     pyw: <SiPython className="h-4 w-4 text-blue-400" />,
@@ -153,11 +148,9 @@ export function FileIcon({
     clj: <SiClojure className="h-4 w-4 text-green-600" />,
     erl: <SiErlang className="h-4 w-4 text-red-500" />,
 
-    // Shell scripts
     bat: <FaFileCode className="h-4 w-4 text-green-600" />,
     cmd: <FaFileCode className="h-4 w-4 text-green-600" />,
 
-    // Images
     png: <FaFileImage className="h-4 w-4 text-purple-400" />,
     jpg: <FaFileImage className="h-4 w-4 text-purple-400" />,
     jpeg: <FaFileImage className="h-4 w-4 text-purple-400" />,
@@ -167,28 +160,24 @@ export function FileIcon({
     ico: <FaFileImage className="h-4 w-4 text-blue-400" />,
     bmp: <FaFileImage className="h-4 w-4 text-purple-400" />,
 
-    // Video
     mp4: <FaFileVideo className="h-4 w-4 text-pink-500" />,
     avi: <FaFileVideo className="h-4 w-4 text-pink-500" />,
     mov: <FaFileVideo className="h-4 w-4 text-pink-500" />,
     mkv: <FaFileVideo className="h-4 w-4 text-pink-500" />,
     webm: <FaFileVideo className="h-4 w-4 text-pink-500" />,
 
-    // Audio
     mp3: <FaFileAudio className="h-4 w-4 text-cyan-500" />,
     wav: <FaFileAudio className="h-4 w-4 text-cyan-500" />,
     flac: <FaFileAudio className="h-4 w-4 text-cyan-500" />,
     ogg: <FaFileAudio className="h-4 w-4 text-cyan-500" />,
     m4a: <FaFileAudio className="h-4 w-4 text-cyan-500" />,
 
-    // Archives
     zip: <FaFileArchive className="h-4 w-4 text-yellow-600" />,
     rar: <FaFileArchive className="h-4 w-4 text-yellow-600" />,
     "7z": <FaFileArchive className="h-4 w-4 text-yellow-600" />,
     tar: <FaFileArchive className="h-4 w-4 text-yellow-600" />,
     gz: <FaFileArchive className="h-4 w-4 text-yellow-600" />,
 
-    // Office documents
     doc: <FaFileWord className="h-4 w-4 text-blue-600" />,
     docx: <FaFileWord className="h-4 w-4 text-blue-600" />,
     xls: <FaFileExcel className="h-4 w-4 text-green-600" />,
@@ -196,24 +185,19 @@ export function FileIcon({
     ppt: <FaFilePowerpoint className="h-4 w-4 text-orange-600" />,
     pptx: <FaFilePowerpoint className="h-4 w-4 text-orange-600" />,
 
-    // Database
     sql: <SiPostgresql className="h-4 w-4 text-blue-500" />,
     db: <SiSqlite className="h-4 w-4 text-blue-400" />,
     sqlite: <SiSqlite className="h-4 w-4 text-blue-400" />,
 
-    // GraphQL
     graphql: <SiGraphql className="h-4 w-4 text-pink-500" />,
     gql: <SiGraphql className="h-4 w-4 text-pink-500" />,
 
-    // Docker/Container
     dockerfile: <SiDocker className="h-4 w-4 text-blue-500" />,
 
-    // Git
     gitignore: <SiGit className="h-4 w-4 text-orange-600" />,
     gitattributes: <SiGit className="h-4 w-4 text-orange-600" />,
   };
 
-  // Special file names (full match)
   const specialFiles: Record<string, JSX.Element> = {
     "package.json": <SiNodedotjs className="h-4 w-4 text-green-500" />,
     "package-lock.json": <SiNpm className="h-4 w-4 text-red-500" />,
@@ -233,12 +217,10 @@ export function FileIcon({
     "cargo.toml": <SiRust className="h-4 w-4 text-orange-600" />,
   };
 
-  // Check special files first
   if (specialFiles[fullName]) {
     return specialFiles[fullName];
   }
 
-  // Then check by extension
   return (
     iconMap[extension || ""] || <VscFile className="h-4 w-4 text-gray-400" />
   );

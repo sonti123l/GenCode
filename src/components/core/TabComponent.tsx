@@ -1,4 +1,3 @@
-// components/TabBar.tsx
 import { X } from "lucide-react";
 import { FileIcon } from "../rootfiles/files/FileIcon";
 
@@ -17,43 +16,35 @@ export default function TabBar() {
   return (
     <div className="flex items-center bg-[#252526] border-b border-gray-800 overflow-x-auto scrollbar-thin">
       {tabs.map((tab: any) => (
-        <div    
+        <div
           key={tab.path}
           onClick={() => setActiveTab(tab.path)}
           className={`
             flex items-center gap-2 px-3 py-2 border-r border-gray-800 cursor-pointer
             min-w-[120px] max-w-[200px] group relative
-            ${activeTab === tab.path 
-              ? 'bg-[#1e1e1e] text-white' 
-              : 'bg-[#2d2d30] text-gray-400 hover:bg-[#2a2d2e]'
+            ${
+              activeTab === tab.path
+                ? "bg-[#1e1e1e] text-white"
+                : "bg-[#2d2d30] text-gray-400 hover:bg-[#2a2d2e]"
             }
           `}
         >
-          {/* File Icon */}
           <FileIcon fileName={tab.name} isDirectory={false} />
-          
-          {/* File Name */}
-          <span className="truncate text-sm flex-1">
-            {tab.name}
-          </span>
 
-          {/* Dirty indicator (dot for unsaved changes) */}
-          {tab.isDirty && (
-            <div className="w-2 h-2 rounded-full bg-white" />
-          )}
+          <span className="truncate text-sm flex-1">{tab.name}</span>
 
-          {/* Close button */}
+          {tab.isDirty && <div className="w-2 h-2 rounded-full bg-white" />}
+
           <button
             onClick={(e) => handleCloseTab(e, tab.path)}
             className={`
               p-0.5 rounded hover:bg-gray-600 
-              ${tab.isDirty ? 'opacity-0 group-hover:opacity-100' : ''}
+              ${tab.isDirty ? "opacity-0 group-hover:opacity-100" : ""}
             `}
           >
             <X className="h-3 w-3" />
           </button>
 
-          {/* Active tab indicator */}
           {activeTab === tab.path && (
             <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500" />
           )}
@@ -63,6 +54,11 @@ export default function TabBar() {
   );
 }
 
-function useEditor(): { tabs: any; activeTab: any; setActiveTab: any; closeTab: any; } {
-    throw new Error("Function not implemented.");
+function useEditor(): {
+  tabs: any;
+  activeTab: any;
+  setActiveTab: any;
+  closeTab: any;
+} {
+  throw new Error("Function not implemented.");
 }

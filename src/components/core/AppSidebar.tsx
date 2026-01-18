@@ -25,9 +25,7 @@ export default function AppSidebar({ options }: { options: any }) {
                       <item.icon className="w-6 h-6 text-gray-300" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.menuItem}
-                  </TooltipContent>
+                  <TooltipContent side="right">{item.menuItem}</TooltipContent>
                 </Tooltip>
               ),
             )}

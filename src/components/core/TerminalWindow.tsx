@@ -9,11 +9,9 @@ import {
   Plus,
   X,
   ChevronDown,
-  ChevronUp,
   Maximize2,
   Minimize2,
   Terminal as TerminalIcon,
-  Trash2,
 } from "lucide-react";
 
 interface TerminalTab {
@@ -45,7 +43,6 @@ export default function TerminalWindow({
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  // Create a new terminal tab
   const createTerminal = useCallback(async () => {
     const terminalId = `terminal-${Date.now()}`;
     const tabNumber = tabs.length + 1;
@@ -98,7 +95,6 @@ export default function TerminalWindow({
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(terminalId);
 
-    // Create the PTY in the backend
     try {
       await invoke("create_terminal", {
         terminalId,
@@ -109,7 +105,6 @@ export default function TerminalWindow({
       terminal.writeln(`\x1b[31mFailed to create terminal: ${error}\x1b[0m`);
     }
 
-    // Handle terminal input
     terminal.onData((data) => {
       invoke("write_terminal", {
         terminalId,
@@ -120,7 +115,6 @@ export default function TerminalWindow({
     return newTab;
   }, [tabs.length, cwd]);
 
-  // Listen for terminal output events
   useEffect(() => {
     const unlisten = listen<TerminalOutputEvent>("terminal-output", (event) => {
       const { terminal_id, data } = event.payload;
@@ -135,25 +129,20 @@ export default function TerminalWindow({
     };
   }, [tabs]);
 
-  // Mount active terminal to container
   useEffect(() => {
     if (!terminalContainerRef.current || !activeTabId) return;
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab) return;
 
-    // Clear container
     terminalContainerRef.current.innerHTML = "";
 
-    // Open terminal in container
     activeTab.terminal.open(terminalContainerRef.current);
     activeTab.fitAddon.fit();
 
-    // Focus the terminal
     activeTab.terminal.focus();
   }, [activeTabId, tabs, isVisible]);
 
-  // Handle resize
   useEffect(() => {
     if (!terminalContainerRef.current) return;
 
@@ -162,7 +151,6 @@ export default function TerminalWindow({
       if (activeTab) {
         try {
           activeTab.fitAddon.fit();
-          // Notify backend about resize
           const dims = activeTab.fitAddon.proposeDimensions();
           if (dims) {
             invoke("resize_terminal", {
@@ -171,9 +159,7 @@ export default function TerminalWindow({
               cols: dims.cols,
             }).catch(console.error);
           }
-        } catch (e) {
-          // Ignore fit errors during transitions
-        }
+        } catch (e) {}
       }
     });
 
@@ -184,14 +170,12 @@ export default function TerminalWindow({
     };
   }, [activeTabId, tabs]);
 
-  // Create initial terminal when component becomes visible
   useEffect(() => {
     if (isVisible && tabs.length === 0) {
       createTerminal();
     }
   }, [isVisible, tabs.length, createTerminal]);
 
-  // Close terminal tab
   const closeTab = async (tabId: string) => {
     const tab = tabs.find((t) => t.id === tabId);
     if (tab) {
@@ -209,7 +193,6 @@ export default function TerminalWindow({
     }
   };
 
-  // Handle resize drag
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(true);
@@ -282,7 +265,7 @@ export default function TerminalWindow({
               onClick={() => setActiveTabId(tab.id)}
             >
               <TerminalIcon className="w-3.5 h-3.5" />
-              <span className="max-w-[100px] truncate">{tab.name}</span>
+              <span className="max-w-25 truncate">{tab.name}</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

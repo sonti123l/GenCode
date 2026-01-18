@@ -1,5 +1,3 @@
-import { Code } from "lucide-react";
-import { Button } from "./ui/button";
 import { Buttons } from "@/helpers/constants/button-constant";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";

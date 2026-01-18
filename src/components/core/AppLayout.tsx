@@ -1,9 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useMemo, useState, createContext, useContext } from "react";
 import { Bot, Terminal } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "../ui/tooltip";
 
-// Create context for chat visibility
 interface ChatContextType {
   showChat: boolean;
   setShowChat: (show: boolean) => void;
@@ -20,14 +24,15 @@ export function useChatVisibility() {
   return context;
 }
 
-// Create context for terminal visibility
 interface TerminalContextType {
   showTerminal: boolean;
   setShowTerminal: (show: boolean) => void;
   toggleTerminal: () => void;
 }
 
-const TerminalContext = createContext<TerminalContextType | undefined>(undefined);
+const TerminalContext = createContext<TerminalContextType | undefined>(
+  undefined,
+);
 
 export function useTerminalVisibility() {
   const context = useContext(TerminalContext);
@@ -62,9 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <TerminalContext.Provider value={terminalContextValue}>
         <TooltipProvider>
           <div className="h-screen flex flex-col bg-[#1e1e1e]">
-            {/* Header */}
             <div className="flex h-8 bg-[#1f1f1f] text-gray-300 select-none">
-              {/* App Title - Draggable */}
               <div
                 data-tauri-drag-region
                 className="flex items-center px-3 text-sm flex-1"
@@ -72,7 +75,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 GEN CODE
               </div>
 
-              {/* Terminal Toggle Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -86,7 +88,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Terminal className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="bg-[#2d2d2d] border-[#3c3c3c] text-white">
+                <TooltipContent
+                  side="bottom"
+                  className="bg-[#2d2d2d] border-[#3c3c3c] text-white"
+                >
                   <p className="text-xs">
                     {showTerminal ? "Hide Terminal" : "Open Terminal"}
                   </p>
@@ -94,7 +99,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </TooltipContent>
               </Tooltip>
 
-              {/* AI Agent Toggle Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -108,15 +112,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Bot className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="bg-[#2d2d2d] border-[#3c3c3c] text-white">
+                <TooltipContent
+                  side="bottom"
+                  className="bg-[#2d2d2d] border-[#3c3c3c] text-white"
+                >
                   <p className="text-xs">
                     {showChat ? "Hide AI Agent" : "Open AI Agent"}
                   </p>
-                  <p className="text-[10px] text-gray-400">Chat with AI to code faster</p>
+                  <p className="text-[10px] text-gray-400">
+                    Chat with AI to code faster
+                  </p>
                 </TooltipContent>
               </Tooltip>
 
-              {/* Window Controls */}
               <div className="flex">
                 <button
                   className="w-10 h-8 hover:bg-[#3a3a3a] flex items-center justify-center"
@@ -139,7 +147,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Main Content */}
             <div className="flex-1 overflow-hidden">{children}</div>
           </div>
         </TooltipProvider>

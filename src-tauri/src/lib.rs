@@ -1,4 +1,3 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use futures::StreamExt;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
@@ -115,8 +114,6 @@ fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
 
     Ok(result)
 }
-
-// ============ Ollama AI Integration ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChatMessage {
@@ -324,8 +321,6 @@ fn get_file_metadata(path: &str) -> Result<FileMetadata, String> {
     })
 }
 
-// ============ Terminal PTY Integration ============
-
 type PtyWriter = Arc<Mutex<Box<dyn Write + Send>>>;
 type PtyReader = Arc<Mutex<Box<dyn Read + Send>>>;
 
@@ -370,7 +365,6 @@ async fn create_terminal(
         })
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    // Get the default shell based on OS
     #[cfg(target_os = "windows")]
     let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
     
@@ -379,12 +373,10 @@ async fn create_terminal(
 
     let mut cmd = CommandBuilder::new(&shell);
     
-    // Set working directory
     if let Some(dir) = cwd {
         cmd.cwd(dir);
     }
 
-    // Spawn the shell
     let _child = pair
         .slave
         .spawn_command(cmd)
@@ -398,7 +390,6 @@ async fn create_terminal(
     let reader = Arc::new(Mutex::new(reader));
     let writer = Arc::new(Mutex::new(writer));
 
-    // Store the terminal instance
     {
         let mut terminals = state.terminals.lock().unwrap();
         terminals.insert(
@@ -410,7 +401,6 @@ async fn create_terminal(
         );
     }
 
-    // Spawn a thread to read from PTY and emit events
     let terminal_id_clone = terminal_id.clone();
     let window_clone = window.clone();
     
@@ -470,8 +460,6 @@ fn resize_terminal(
     cols: u16,
     _state: State<'_, TerminalState>,
 ) -> Result<(), String> {
-    // Note: Resizing requires keeping the master PTY handle
-    // For now, we'll just acknowledge the resize request
     eprintln!("Resize terminal {} to {}x{}", terminal_id, cols, rows);
     Ok(())
 }

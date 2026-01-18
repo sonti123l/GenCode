@@ -8,7 +8,6 @@ import { PanelRightClose, FolderOpen, FileSearch } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
 import { useChatVisibility, useTerminalVisibility } from "../core/AppLayout";
 
-// Simple icon sidebar without the complex SidebarProvider
 function IconSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
   const menuItems = [
     { id: "files", icon: FolderOpen, label: "Explorer" },
@@ -73,12 +72,9 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Main Content Area */}
       <div className="flex-1 flex w-full min-h-0">
-        {/* Left Icon Sidebar */}
         <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* File Explorer Panel */}
         <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
           <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
             Explorer

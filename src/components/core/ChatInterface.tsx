@@ -167,7 +167,7 @@ function MessageBubble({
       className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}
     >
       <div
-        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
           isUser ? "bg-blue-600" : "bg-purple-600"
         }`}
       >
@@ -264,7 +264,7 @@ function ContextPanel({
               className="flex items-center gap-1 px-2 py-1 bg-[#3c3c3c] rounded text-xs text-gray-300"
             >
               <FileCode className="w-3 h-3" />
-              <span className="max-w-[150px] truncate">
+              <span className="max-w-37.5 truncate">
                 {file.path.split(/[\\/]/).pop()}
               </span>
               <button
@@ -922,7 +922,7 @@ ${error instanceof Error ? error.message : String(error)}
           onClose={() => setShowSettings(false)}
         />
         <div className="flex gap-2">
-          <div className="flex-1 relative">
+          <div className="flex-1 relative flex justify-center items-center">
             <textarea
               ref={inputRef}
               value={input}
@@ -942,7 +942,7 @@ ${error instanceof Error ? error.message : String(error)}
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
-              className="absolute right-2 bottom-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
+              className="absolute right-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

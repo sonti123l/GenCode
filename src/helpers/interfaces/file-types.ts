@@ -25,3 +25,36 @@ export interface FileIconProps {
   isDirectory: boolean;
   isOpen?: boolean;
 }
+
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: Date;
+  codeBlocks?: CodeBlock[];
+  isStreaming?: boolean;
+}
+
+export interface CodeBlock {
+  language: string;
+  code: string;
+  fileName?: string;
+  action?: "create" | "edit" | "view";
+}
+
+export interface FileContext {
+  path: string;
+  content: string;
+  language: string;
+}
+
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+export interface ChatStreamEvent {
+  content: string;
+  done: boolean;
+}

@@ -1,24 +1,128 @@
 import { FileNode } from "@/helpers/interfaces/file-types";
 import FileSystemRepresentation from "../core/FileSystemRepresentation";
-import Options from "../core/Options";
 import CodeEditorPage from "../core/CodeEditorPage";
+import ChatInterface from "../core/ChatInterface";
+import TerminalWindow from "../core/TerminalWindow";
+import { useState } from "react";
+import { PanelRightClose, FolderOpen, FileSearch } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
+import { useChatVisibility, useTerminalVisibility } from "../core/AppLayout";
 
-export default function MainEditorPagelayout({ tree }: { tree: FileNode }) {
+// Simple icon sidebar without the complex SidebarProvider
+function IconSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+  const menuItems = [
+    { id: "files", icon: FolderOpen, label: "Explorer" },
+    { id: "search", icon: FileSearch, label: "Search" },
+  ];
+
   return (
-    <div className="h-full flex w-full">
-      <div className="h-full w-12 bg-[#333333]">
-        <Options />
+    <TooltipProvider>
+      <div className="h-full w-12 bg-[#333333] flex flex-col items-center pt-2 gap-2">
+        {menuItems.map((item) => (
+          <Tooltip key={item.id}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setActiveTab(item.id)}
+                className={`p-2 rounded-md transition-colors ${
+                  activeTab === item.id
+                    ? "bg-white/20 text-white"
+                    : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {item.label}
+            </TooltipContent>
+          </Tooltip>
+        ))}
       </div>
+    </TooltipProvider>
+  );
+}
 
-      <div className="h-full flex flex-1">
-        <div className="h-full w-65 bg-[#181818]">
-          <FileSystemRepresentation tree={tree} />
+export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
+  const { showChat, setShowChat } = useChatVisibility();
+  const { showTerminal, toggleTerminal } = useTerminalVisibility();
+  const [chatWidth, setChatWidth] = useState(400);
+  const [isResizing, setIsResizing] = useState(false);
+  const [activeTab, setActiveTab] = useState("files");
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isResizing) return;
+    const newWidth = window.innerWidth - e.clientX;
+    if (newWidth >= 300 && newWidth <= 800) {
+      setChatWidth(newWidth);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsResizing(false);
+  };
+
+  return (
+    <div
+      className="h-full flex flex-col w-full"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Main Content Area */}
+      <div className="flex-1 flex w-full min-h-0">
+        {/* Left Icon Sidebar */}
+        <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* File Explorer Panel */}
+        <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
+          <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
+            Explorer
+          </div>
+          <div className="h-[calc(100%-2rem)]">
+            <FileSystemRepresentation tree={tree} />
+          </div>
         </div>
 
-        <div className="h-full flex-1 bg-[#1e1e1e]">
+        <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
           <CodeEditorPage />
         </div>
+
+        {showChat && (
+          <>
+            <div
+              className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
+                isResizing ? "bg-purple-500" : ""
+              }`}
+              onMouseDown={handleMouseDown}
+            />
+
+            <div
+              className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
+              style={{ width: chatWidth }}
+            >
+              <button
+                onClick={() => setShowChat(false)}
+                className="absolute right-2 top-2 z-20 p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                title="Close AI Assistant"
+              >
+                <PanelRightClose className="w-4 h-4" />
+              </button>
+              <ChatInterface />
+            </div>
+          </>
+        )}
       </div>
+
+      <TerminalWindow
+        isVisible={showTerminal}
+        onToggle={toggleTerminal}
+        cwd={tree.path}
+      />
     </div>
   );
 }

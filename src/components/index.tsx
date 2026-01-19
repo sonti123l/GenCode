@@ -1,15 +1,23 @@
 import { Buttons } from "@/helpers/constants/button-constant";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { DirEntryInfo, FileNode } from "@/helpers/interfaces/file-types";
-import { buildFileTree } from "./rootfiles/buildTree";
+import { buildFileTree, buildFileTreeArray } from "./rootfiles/buildTree";
 
 export default function FolderSelectorPage({
   setTree,
 }: {
   setTree: Dispatch<SetStateAction<FileNode>>;
 }) {
+  const [gitFolder, setGitFolder] = useState<DirEntryInfo[]>([
+    {
+      name: "",
+      path: "",
+      is_dir: false,
+      children: [],
+    },
+  ]);
   const handleSelectFolder = async () => {
     const selectedPath = await open({
       fileAccessMode: "copy",
@@ -23,9 +31,19 @@ export default function FolderSelectorPage({
       path: selectedPath,
     });
 
-    const tree = buildFileTree(entries, selectedPath);
+    const onlyGitFolder = entries?.filter(
+      (eachEntry: DirEntryInfo) => eachEntry.name === ".git",
+    );
+    const filterEntries = entries?.filter(
+      (eachEntry: DirEntryInfo) => eachEntry.name !== ".git",
+    );
+
+    setGitFolder(onlyGitFolder);
+
+    const tree = buildFileTree(filterEntries, selectedPath);
     setTree(tree);
   };
+
   return (
     <div className="min-h-screen w-full bg-transparent flex items-center justify-center p-8">
       <div className="w-full max-w-2xl space-y-12">

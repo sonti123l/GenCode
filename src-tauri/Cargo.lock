@@ -669,6 +669,7 @@ name = "desktop-agent"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "once_cell",
  "portable-pty",
  "reqwest",
  "serde",

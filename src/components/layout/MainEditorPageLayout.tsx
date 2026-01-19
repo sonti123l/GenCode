@@ -101,13 +101,6 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
               className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
               style={{ width: chatWidth }}
             >
-              <button
-                onClick={() => setShowChat(false)}
-                className="absolute right-2 top-2 z-20 p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                title="Close AI Assistant"
-              >
-                <PanelRightClose className="w-4 h-4" />
-              </button>
               <ChatInterface />
             </div>
           </>

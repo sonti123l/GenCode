@@ -45,39 +45,33 @@ export default function FolderSelectorPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-transparent flex items-center justify-center p-8">
-      <div className="w-full max-w-2xl space-y-12">
-        <div className="text-center space-y-2">
-          <h1 className="text-5xl font-light text-white tracking-tight">
-            GEN CODE
-          </h1>
-          <p className="text-sm text-gray-500">Start building something new</p>
+    <div className="h-screen flex flex-col justify-center items-center w-full gap-3">
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-2 justify-start items-center h-25 w-80">
+          <Code className="w-8 h-8" />
+          <p className="text-2xl font-semibold">GEN CODE</p>
         </div>
-
-        <div className="flex gap-3 justify-center">
-          {Buttons?.map((eachBtn, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                eachBtn.name === "Open project" && handleSelectFolder();
-              }}
-              className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all duration-200"
-            >
-              <eachBtn.icon
-                className="w-4 h-4 text-gray-400"
-                strokeWidth={1.5}
-              />
-              <span className="text-sm text-gray-300">{eachBtn.name}</span>
-            </button>
-          ))}
+        <div className="flex gap-3">
+          {Buttons?.map(
+            (eachBtn: { name: string; icon: any }, index: number) => (
+              <div
+                className="bg-[#1f272eae] w-80 h-25 rounded-md flex flex-col justify-center items-start"
+                key={index}
+                onClick={() => {
+                  eachBtn.name === "Open project" && handleSelectFolder();
+                }}
+              >
+                <eachBtn.icon className="w-6 h-6 ml-4 text-gray-400" />
+                <Button className="w-full justify-start bg-transparent hover:bg-transparent text-lg text-gray-400">
+                  {eachBtn.name}
+                </Button>
+              </div>
+            ),
+          )}
         </div>
-
-        <div className="space-y-3">
-          <p className="text-xs text-gray-600 uppercase tracking-wider">
-            Recent
-          </p>
-          <div className="text-sm text-gray-500">No recent projects</div>
-        </div>
+      </div>
+      <div className="flex justify-start h-25 w-160">
+        <p>Recent projects</p>
       </div>
     </div>
   );

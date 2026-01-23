@@ -180,9 +180,7 @@ export default function TerminalWindow({
     const tab = tabs.find((t) => t.id === tabId);
     if (tab) {
       tab.terminal.dispose();
-      await invoke("close_terminal", { terminalId: tabId }).catch(
-        console.error,
-      );
+      await invoke("close_terminal", { terminalId: tabId }).catch(console.error);
     }
 
     setTabs((prev) => prev.filter((t) => t.id !== tabId));
@@ -222,12 +220,15 @@ export default function TerminalWindow({
     };
   }, [isResizing]);
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+` to toggle terminal
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
         onToggle();
       }
+      // Ctrl+Shift+` to create new terminal
       if (e.ctrlKey && e.shiftKey && e.key === "`") {
         e.preventDefault();
         createTerminal();
@@ -245,6 +246,7 @@ export default function TerminalWindow({
       className="flex flex-col bg-[#1e1e1e] border-t border-[#3c3c3c]"
       style={{ height: isMaximized ? "calc(100vh - 2rem)" : height }}
     >
+      {/* Resize Handle */}
       <div
         className={`h-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-ns-resize transition-colors ${
           isResizing ? "bg-purple-500" : ""
@@ -252,8 +254,10 @@ export default function TerminalWindow({
         onMouseDown={handleResizeMouseDown}
       />
 
+      {/* Terminal Header */}
       <div className="flex items-center justify-between h-9 bg-[#252526] border-b border-[#3c3c3c] px-2">
         <div className="flex items-center gap-1 overflow-x-auto">
+          {/* Tabs */}
           {tabs.map((tab) => (
             <div
               key={tab.id}
@@ -278,6 +282,7 @@ export default function TerminalWindow({
             </div>
           ))}
 
+          {/* New Terminal Button */}
           <button
             onClick={() => createTerminal()}
             className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-white"
@@ -287,6 +292,7 @@ export default function TerminalWindow({
           </button>
         </div>
 
+        {/* Controls */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsMaximized(!isMaximized)}
@@ -309,12 +315,14 @@ export default function TerminalWindow({
         </div>
       </div>
 
+      {/* Terminal Container */}
       <div
         ref={terminalContainerRef}
         className="flex-1 overflow-hidden"
         style={{ padding: "4px 8px" }}
       />
 
+      {/* Status Bar */}
       <div className="h-6 flex items-center justify-between px-3 bg-[#252526] border-t border-[#3c3c3c] text-xs text-gray-500">
         <div className="flex items-center gap-2">
           <span>

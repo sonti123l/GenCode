@@ -2,11 +2,38 @@ use futures::StreamExt;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
+use std::fs as std_fs;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, Manager, State, Window};
+use tauri::{Emitter, State, Window};
+use tokio::fs;
+use tokio::task;
+
+#[tauri::command]
+async fn read_file_content(paths: Vec<String>) -> Vec<(String, String)> {
+    let mut handles = Vec::new();
+
+    for path in paths {
+        let path_clone = path.clone();
+        handles.push(task::spawn(async move {
+            match fs::read_to_string(&path_clone).await {
+                Ok(content) => Some((path_clone, content)),
+                Err(_) => None,
+            }
+        }));
+    }
+
+    let mut results: Vec<(String, String)> = Vec::new();
+
+    for handle in handles {
+        if let Ok(Some(data)) = handle.await {
+            results.push(data);
+        }
+    }
+
+    results
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -22,8 +49,8 @@ pub struct DirEntryInfo {
 }
 
 #[tauri::command]
-fn read_file_content(path: &str) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+fn read_file_while_content(path: &str) -> Result<String, String> {
+    std_fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
 fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
@@ -31,7 +58,7 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
 
     let mut entries = Vec::new();
 
-    for entry in fs::read_dir(dir)
+    for entry in std_fs::read_dir(dir)
         .map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?
     {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
@@ -92,7 +119,7 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
 
 #[tauri::command]
 fn write_file_content(path: &str, content: &str) -> Result<(), String> {
-    fs::write(path, content).map_err(|e| e.to_string())
+    std_fs::write(path, content).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -130,7 +157,6 @@ struct OllamaChatRequest {
 
 #[derive(Debug, Deserialize)]
 struct OllamaChatResponse {
-    model: String,
     message: ChatMessage,
     done: bool,
 }
@@ -275,24 +301,24 @@ async fn chat_with_ollama_sync(
 #[tauri::command]
 fn create_file(path: &str, content: &str) -> Result<(), String> {
     if let Some(parent) = Path::new(path).parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
+        std_fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
     }
-    fs::write(path, content).map_err(|e| format!("Failed to create file: {}", e))
+    std_fs::write(path, content).map_err(|e| format!("Failed to create file: {}", e))
 }
 
 #[tauri::command]
 fn delete_file(path: &str) -> Result<(), String> {
     let path = Path::new(path);
     if path.is_dir() {
-        fs::remove_dir_all(path).map_err(|e| format!("Failed to delete directory: {}", e))
+        std_fs::remove_dir_all(path).map_err(|e| format!("Failed to delete directory: {}", e))
     } else {
-        fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e))
+        std_fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e))
     }
 }
 
 #[tauri::command]
 fn rename_file(old_path: &str, new_path: &str) -> Result<(), String> {
-    fs::rename(old_path, new_path).map_err(|e| format!("Failed to rename file: {}", e))
+    std_fs::rename(old_path, new_path).map_err(|e| format!("Failed to rename file: {}", e))
 }
 
 #[derive(Serialize)]
@@ -305,7 +331,7 @@ struct FileMetadata {
 
 #[tauri::command]
 fn get_file_metadata(path: &str) -> Result<FileMetadata, String> {
-    let metadata = fs::metadata(path).map_err(|e| format!("Failed to get metadata: {}", e))?;
+    let metadata = std_fs::metadata(path).map_err(|e| format!("Failed to get metadata: {}", e))?;
 
     let modified = metadata
         .modified()
@@ -484,6 +510,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             read_directory,
+            read_file_while_content,
             read_file_content,
             write_file_content,
             check_ollama_connection,

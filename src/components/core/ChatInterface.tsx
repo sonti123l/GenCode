@@ -33,7 +33,7 @@ import {
   ChatMessage,
 } from "@/helpers/interfaces/file-types";
 
-const DEFAULT_MODEL = "codellama:7b";
+const DEFAULT_MODEL = "gemma3:4b";
 
 function extractCodeBlocks(content: string): CodeBlock[] {
   const codeBlockRegex = /```(\w+)?\s*(?:\[([^\]]+)\])?\n([\s\S]*?)```/g;
@@ -860,7 +860,7 @@ ${error instanceof Error ? error.message : String(error)}
         hasContext={contextFiles.length > 0}
       />
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 h-100">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
             <Bot className="w-12 h-12 mb-4 text-purple-400/50" />
@@ -908,13 +908,13 @@ ${error instanceof Error ? error.message : String(error)}
                 onCopyCode={handleCopyCode}
               />
             ))}
-            <div ref={messagesEndRef} />
+            {/* <div ref={messagesEndRef} /> */}
           </div>
         )}
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3">
+      <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 mb-10">
         <SettingsPanel
           model={model}
           setModel={setModel}

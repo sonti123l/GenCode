@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Dispatch, SetStateAction } from "react";
 import { DirEntryInfo, FileNode } from "@/helpers/interfaces/file-types";
 import { buildFileTree } from "./rootfiles/buildTree";
+import { getAllFilePaths } from "./rootfiles/getAllFilePaths";
 
 export default function FolderSelectorPage({
   setTree,
@@ -24,8 +25,19 @@ export default function FolderSelectorPage({
     });
 
     const tree = buildFileTree(entries, selectedPath);
+    const filePaths = getAllFilePaths(tree);
+    const files: Array<[string, string]> = await invoke("read_file_content", {
+      paths: filePaths,
+    });
+
+    files.forEach(([path, content]) => {
+      console.log("File:", path);
+      console.log("Content:", content);
+    });
+
     setTree(tree);
   };
+
   return (
     <div className="h-screen flex flex-col justify-center items-center w-full gap-3">
       <div className="flex flex-col gap-1">

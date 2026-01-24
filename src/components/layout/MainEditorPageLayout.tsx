@@ -5,21 +5,10 @@ import ChatInterface from "../core/ChatInterface";
 import TerminalWindow from "../core/TerminalWindow";
 import { useState } from "react";
 import { PanelRightClose, FolderOpen, FileSearch } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
 import { useChatVisibility, useTerminalVisibility } from "../core/AppLayout";
 
-function IconSidebar({
-  activeTab,
-  setActiveTab,
-}: {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}) {
+function IconSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
   const menuItems = [
     { id: "files", icon: FolderOpen, label: "Explorer" },
     { id: "search", icon: FileSearch, label: "Search" },
@@ -42,7 +31,9 @@ function IconSidebar({
                 <item.icon className="w-5 h-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">{item.label}</TooltipContent>
+            <TooltipContent side="right">
+              {item.label}
+            </TooltipContent>
           </Tooltip>
         ))}
       </div>
@@ -81,59 +72,46 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <div className="flex flex-col h-[calc(100vh-35px)]">
-        <div className="flex-1 flex w-full min-h-0">
-          <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="flex-1 flex w-full min-h-0">
+        <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-          <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
-            <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
-              Explorer
-            </div>
-            <div className="h-[calc(100%-2rem)]">
-              <FileSystemRepresentation tree={tree} />
-            </div>
+        <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
+          <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
+            Explorer
           </div>
-
-          <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
-            <CodeEditorPage />
+          <div className="h-[calc(100%-2rem)]">
+            <FileSystemRepresentation tree={tree} />
           </div>
-
-          {showChat && (
-            <>
-              <div
-                className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
-                  isResizing ? "bg-purple-500" : ""
-                }`}
-                onMouseDown={handleMouseDown}
-              />
-
-              <div
-                className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
-                style={{ width: chatWidth }}
-              >
-                <button
-                  onClick={() => setShowChat(false)}
-                  className="absolute right-2 top-2 z-20 p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                  title="Close AI Assistant"
-                >
-                  <PanelRightClose className="w-4 h-4" />
-                </button>
-                <ChatInterface />
-              </div>
-            </>
-          )}
         </div>
 
-        <TerminalWindow
-          isVisible={showTerminal}
-          onToggle={toggleTerminal}
-          cwd={tree.path}
-        />
-
-        <div className="h-5 w-full border bg-blue-600">
-
+        <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
+          <CodeEditorPage />
         </div>
+
+        {showChat && (
+          <>
+            <div
+              className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
+                isResizing ? "bg-purple-500" : ""
+              }`}
+              onMouseDown={handleMouseDown}
+            />
+
+            <div
+              className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
+              style={{ width: chatWidth }}
+            >
+              <ChatInterface />
+            </div>
+          </>
+        )}
       </div>
+
+      <TerminalWindow
+        isVisible={showTerminal}
+        onToggle={toggleTerminal}
+        cwd={tree.path}
+      />
     </div>
   );
 }

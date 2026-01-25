@@ -5,6 +5,7 @@ import { Dispatch, SetStateAction } from "react";
 import { DirEntryInfo, FileNode } from "@/helpers/interfaces/file-types";
 import { buildFileTree } from "./rootfiles/buildTree";
 import { getAllFilePaths } from "./rootfiles/getAllFilePaths";
+import { ParsedFile } from "@/lib/parser";
 
 export default function FolderSelectorPage({
   setTree,
@@ -26,14 +27,57 @@ export default function FolderSelectorPage({
 
     const tree = buildFileTree(entries, selectedPath);
     const filePaths = getAllFilePaths(tree);
-    const files: Array<[string, string]> = await invoke("read_file_content", {
+    const files: any = await invoke("read_file_content", {
       paths: filePaths,
     });
-
-    files.forEach(([path, content]) => {
-      console.log("File:", path);
-      console.log("Content:", content);
+    const parsedData = await invoke<ParsedFile[]>("parse_files", {
+      files: files,
     });
+
+    const stats = {
+      total: parsedData.length,
+      successful: 0,
+      failed: 0,
+      byLanguage: {} as Record<string, number>,
+      totalLines: 0,
+      totalNodes: 0,
+    };
+
+    for (const file of parsedData) {
+      if (file.success) {
+        stats.successful++;
+        stats.totalLines += file.metadata.lines;
+        stats.totalNodes += file.metadata.node_count;
+
+        // Count by language
+        stats.byLanguage[file.language] =
+          (stats.byLanguage[file.language] || 0) + 1;
+
+        console.log(`  ✓ ${file.path}`);
+        console.log(`    Language: ${file.language}`);
+        console.log(`    Lines: ${file.metadata.lines}`);
+        console.log(`    AST nodes: ${file.metadata.node_count}`);
+        console.log(`    Has errors: ${file.metadata.has_syntax_errors}`);
+
+        if (file.ast) {
+          console.log(`    Root AST node: ${file.ast.node_type}`);
+        }
+      } else {
+        stats.failed++;
+        console.error(`  ✗ ${file.path}: ${file.error}`);
+      }
+    }
+
+    console.log("\n📈 Summary:");
+    console.log(`  Total files: ${stats.total}`);
+    console.log(`  Successful: ${stats.successful}`);
+    console.log(`  Failed: ${stats.failed}`);
+    console.log(`  Total lines: ${stats.totalLines.toLocaleString()}`);
+    console.log(`  Total AST nodes: ${stats.totalNodes.toLocaleString()}`);
+    console.log("  By language:");
+    for (const [lang, count] of Object.entries(stats.byLanguage)) {
+      console.log(`    ${lang}: ${count} files`);
+    }
 
     setTree(tree);
   };

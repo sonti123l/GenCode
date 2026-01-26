@@ -8,12 +8,12 @@ import { useEditor } from "@/context/EditorContext";
 
 export function FileTree({ node }: { node: FileNode }) {
   const [open, setOpen] = useState(false);
-  const { setSelectedFile, setFileContent } = useEditor();
+  const { selectedFile, setSelectedFile, setFileContent } = useEditor();
 
   const handleFileClick = async () => {
     if (node.isDir) return;
 
-    setSelectedFile((prev: any) => [...prev, node.path]);
+    setSelectedFile(node.path);
 
     try {
       const content = await invoke<string>("read_file_while_content", {
@@ -31,6 +31,7 @@ export function FileTree({ node }: { node: FileNode }) {
         onClick={handleFileClick}
         className={`ml-6 flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm
           hover:bg-white/10
+          ${selectedFile === node.path ? "bg-white/20" : ""}
         `}
       >
         <FileIcon fileName={node.name} isDirectory={false} />

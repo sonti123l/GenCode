@@ -1,6 +1,6 @@
 import { FileNode } from "@/helpers/interfaces/file-types";
 
-const EXCLUDED_DIRS = new Set(["assets", "icons", "public"]);
+const EXCLUDED_DIRS = new Set(["assets", "icons", "public", "node_modules", ".vscode", "target"]);
 
 export function getAllFilePaths(entry: FileNode): string[] {
   const result: string[] = [];

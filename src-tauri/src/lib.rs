@@ -387,11 +387,22 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
 
     let mut entries = Vec::new();
 
+    // Define ignored directories
+    let ignored_dirs = ["node_modules", "target", ".git", "dist", "build", ".idea", ".vscode", "out"];
+
     for entry in std_fs::read_dir(dir)
         .map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?
     {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
+        let file_name = entry.file_name().to_string_lossy().to_string();
+
+        // Check if file/directory should be ignored
+        if ignored_dirs.contains(&file_name.as_str()) || file_name.starts_with('.') {
+            eprintln!("Skipping ignored path: {}", path.display());
+            continue;
+        }
+
         let metadata = entry.metadata().map_err(|e| {
             format!(
                 "Failed to read metadata for {}: {}",
@@ -431,7 +442,7 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
         };
 
         entries.push(DirEntryInfo {
-            name: entry.file_name().to_string_lossy().to_string(),
+            name: file_name,
             path: path.to_string_lossy().to_string(),
             is_dir: metadata.is_dir(),
             children,

@@ -50,3 +50,23 @@ export interface ParseMetadata {
   tree_depth: number;
   has_syntax_errors: boolean;
 }
+
+export type GraphNode = {
+  id: number;
+  type: string;
+  name?: string;
+  path?: string;
+  language?: string;
+};
+
+export type GraphEdge = {
+  from: number;
+  to: number | string;
+  type: string;
+  unresolved?: boolean;
+};
+
+export type CodeGraph = {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+};

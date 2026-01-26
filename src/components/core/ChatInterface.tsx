@@ -582,6 +582,7 @@ export default function ChatInterface() {
       });
     }
   }, [selectedFile, fileContent]);
+  
 
   const buildSystemPrompt = useCallback(() => {
     let systemPrompt = `You are an expert AI coding assistant integrated into a code editor called GEN CODE. You help developers understand, write, and improve code.

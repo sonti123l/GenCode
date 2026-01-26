@@ -44,7 +44,6 @@ export default function FolderSelectorPage({
     };
 
     for (const file of parsedData) {
-      console.log(file);
 
       if (file.success) {
         stats.successful++;

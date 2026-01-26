@@ -50,41 +50,44 @@ export default function CodeEditorPage() {
     );
   }
 
-  const language = getLanguageFromFileName(selectedFile);
-  const fileName = selectedFile.split(/[\\/]/).pop();
-
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e]">
-      <div className="h-9 flex items-center bg-[#252526] px-3">
-        <div className="text-sm text-[#cccccc]">{fileName}</div>
-      </div>
+      {selectedFile?.map((eachFile: any, index: number) => (
+        <>
+          <div className="h-9 flex items-center bg-[#252526] px-3" key={index}>
+            <div className="text-sm text-[#cccccc]">
+              {eachFile.split(/[\\/]/).pop()}
+            </div>
+          </div>
 
-      <Editor
-        language={language}
-        value={fileContent}
-        theme="vs-dark"
-        className="flex-1"
-        options={{
-          fontSize: 14,
-          fontFamily: "Consolas, 'Courier New', monospace",
-          lineNumbers: "on",
-          minimap: { enabled: false },
-          scrollbar: {
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
-          },
-          cursorStyle: "line",
-          cursorBlinking: "blink",
-          scrollBeyondLastLine: false,
-          smoothScrolling: false,
-          padding: { top: 10, bottom: 10 },
-          tabSize: 2,
-          insertSpaces: true,
-          automaticLayout: true,
-          renderWhitespace: "none",
-          wordWrap: "off",
-        }}
-      />
+          <Editor
+            language={getLanguageFromFileName(eachFile)}
+            value={fileContent}
+            theme="vs-dark"
+            className="flex-1"
+            options={{
+              fontSize: 14,
+              fontFamily: "Consolas, 'Courier New', monospace",
+              lineNumbers: "on",
+              minimap: { enabled: false },
+              scrollbar: {
+                verticalScrollbarSize: 10,
+                horizontalScrollbarSize: 10,
+              },
+              cursorStyle: "line",
+              cursorBlinking: "blink",
+              scrollBeyondLastLine: false,
+              smoothScrolling: false,
+              padding: { top: 10, bottom: 10 },
+              tabSize: 2,
+              insertSpaces: true,
+              automaticLayout: true,
+              renderWhitespace: "none",
+              wordWrap: "off",
+            }}
+          />
+        </>
+      ))}
     </div>
   );
 }

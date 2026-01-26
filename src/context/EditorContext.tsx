@@ -1,17 +1,17 @@
 // contexts/EditorContext.tsx
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, SetStateAction, Dispatch } from 'react';
 
 interface EditorContextType {
-  selectedFile: string | null;
+  selectedFile: string[];
   fileContent: string;
-  setSelectedFile: (path: string | null) => void;
+  setSelectedFile: Dispatch<SetStateAction<string[]>>
   setFileContent: (content: string) => void;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
 
 export function EditorProvider({ children }: { children: ReactNode }) {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string[]>([]);
   const [fileContent, setFileContent] = useState<string>('');
 
   return (

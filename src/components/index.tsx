@@ -6,6 +6,7 @@ import { DirEntryInfo, FileNode } from "@/helpers/interfaces/file-types";
 import { buildFileTree } from "./rootfiles/buildTree";
 import { getAllFilePaths } from "./rootfiles/getAllFilePaths";
 import { ParsedFile } from "@/lib/parser";
+import { buildCodeGraphFromFiles } from "./rootfiles/buildCodeGraphFromFiles";
 
 export default function FolderSelectorPage({
   setTree,
@@ -49,35 +50,43 @@ export default function FolderSelectorPage({
         stats.totalLines += file.metadata.lines;
         stats.totalNodes += file.metadata.node_count;
 
-        // Count by language
         stats.byLanguage[file.language] =
           (stats.byLanguage[file.language] || 0) + 1;
-
-        console.log(`  ✓ ${file.path}`);
-        console.log(`    Language: ${file.language}`);
-        console.log(`    Lines: ${file.metadata.lines}`);
-        console.log(`    AST nodes: ${file.metadata.node_count}`);
-        console.log(`    Has errors: ${file.metadata.has_syntax_errors}`);
-
-        if (file.ast) {
-          console.log(`    Root AST node: ${file.ast.node_type}`);
-        }
       } else {
         stats.failed++;
-        console.error(`  ✗ ${file.path}: ${file.error}`);
       }
     }
 
-    console.log("\n📈 Summary:");
-    console.log(`  Total files: ${stats.total}`);
-    console.log(`  Successful: ${stats.successful}`);
-    console.log(`  Failed: ${stats.failed}`);
-    console.log(`  Total lines: ${stats.totalLines.toLocaleString()}`);
-    console.log(`  Total AST nodes: ${stats.totalNodes.toLocaleString()}`);
-    console.log("  By language:");
-    for (const [lang, count] of Object.entries(stats.byLanguage)) {
-      console.log(`    ${lang}: ${count} files`);
-    }
+    const codeGraph = buildCodeGraphFromFiles(parsedData);
+
+    console.log("📈 Code Graph Statistics:");
+    console.log(`  - Total nodes: ${codeGraph.nodes.length}`);
+    console.log(`  - Total edges: ${codeGraph.edges.length}`);
+    console.log(`  - Files: ${codeGraph.files.length}`);
+
+    // Group nodes by type
+    const nodesByType = codeGraph.nodes.reduce(
+      (acc, node) => {
+        acc[node.type] = (acc[node.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    console.log("  - Node types:", nodesByType);
+
+    // Group edges by type
+    const edgesByType = codeGraph.edges.reduce(
+      (acc, edge) => {
+        acc[edge.type] = (acc[edge.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    console.log("  - Edge types:", edgesByType);
+
+    localStorage.setItem("codeGraph", JSON.stringify(codeGraph));
+    localStorage.setItem("parseStats", JSON.stringify(stats));
 
     setTree(tree);
   };

@@ -1,7 +1,7 @@
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 import { FileNode } from "@/helpers/interfaces/file-types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FileIcon } from "./FileIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { useEditor } from "@/context/EditorContext";
@@ -9,7 +9,6 @@ import { useEditor } from "@/context/EditorContext";
 export function FileTree({ node }: { node: FileNode }) {
   const [open, setOpen] = useState(false);
   const { selectedFile, setSelectedFile, setFileContent } = useEditor();
-  const [filePaths, setFilePaths] = useState([]);
 
   const handleFileClick = async () => {
     if (node.isDir) return;
@@ -17,7 +16,7 @@ export function FileTree({ node }: { node: FileNode }) {
     setSelectedFile(node.path);
 
     try {
-      const content = await invoke<string>("read_file_content", {
+      const content = await invoke<string>("read_file_while_content", {
         path: node.path,
       });
       setFileContent(content);

@@ -4,14 +4,28 @@ import CodeEditorPage from "../core/CodeEditorPage";
 import ChatInterface from "../core/ChatInterface";
 import TerminalWindow from "../core/TerminalWindow";
 import { useState } from "react";
-import { PanelRightClose, FolderOpen, FileSearch } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
+import { FolderOpen, FileSearch } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "../ui/tooltip";
 import { useChatVisibility, useTerminalVisibility } from "../core/AppLayout";
+import GraphIcon from "@/icons/graph-icon";
+import CodeGraphViewer from "../core/CodeGraphViewer";
 
-function IconSidebar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+function IconSidebar({
+  activeTab,
+  setActiveTab,
+}: {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}) {
   const menuItems = [
     { id: "files", icon: FolderOpen, label: "Explorer" },
     { id: "search", icon: FileSearch, label: "Search" },
+    { id: "graph", icon: GraphIcon, label: "Graph" },
   ];
 
   return (
@@ -31,9 +45,7 @@ function IconSidebar({ activeTab, setActiveTab }: { activeTab: string; setActive
                 <item.icon className="w-5 h-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">
-              {item.label}
-            </TooltipContent>
+            <TooltipContent side="right">{item.label}</TooltipContent>
           </Tooltip>
         ))}
       </div>
@@ -74,44 +86,53 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
     >
       <div className="flex-1 flex w-full min-h-0">
         <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-        <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
-          <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
-            Explorer
-          </div>
-          <div className="h-[calc(100%-2rem)]">
-            <FileSystemRepresentation tree={tree} />
-          </div>
-        </div>
-
-        <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
-          <CodeEditorPage />
-        </div>
-
-        {showChat && (
+        {activeTab === "files" ? (
           <>
-            <div
-              className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
-                isResizing ? "bg-purple-500" : ""
-              }`}
-              onMouseDown={handleMouseDown}
-            />
-
-            <div
-              className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
-              style={{ width: chatWidth }}
-            >
-              <ChatInterface />
+            <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
+              <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
+                Explorer
+              </div>
+              <div className="h-[calc(100%-2rem)]">
+                <FileSystemRepresentation tree={tree} />
+              </div>
             </div>
-          </>
-        )}
-      </div>
 
-      <TerminalWindow
-        isVisible={showTerminal}
-        onToggle={toggleTerminal}
-        cwd={tree.path}
-      />
+            <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
+              <CodeEditorPage />
+            </div>
+
+            {showChat && (
+              <>
+                <div
+                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
+                    isResizing ? "bg-purple-500" : ""
+                  }`}
+                  onMouseDown={handleMouseDown}
+                />
+
+                <div
+                  className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
+                  style={{ width: chatWidth }}
+                >
+                  <ChatInterface />
+                </div>
+              </>
+            )}
+          </>
+        ) : activeTab === "graph" ? (
+          <div className="h-[calc(100vh-10px)] overflow-y-auto w-full">
+            <CodeGraphViewer />
+          </div>
+        ) : (
+          <div></div>
+        )}
+
+        <TerminalWindow
+          isVisible={showTerminal}
+          onToggle={toggleTerminal}
+          cwd={tree.path}
+        />
+      </div>
     </div>
   );
 }

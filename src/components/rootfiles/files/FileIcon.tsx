@@ -4,6 +4,7 @@ import {
   VscFolder,
   VscFolderOpened,
   VscJson,
+  VscMarkdown,
 } from "react-icons/vsc";
 import {
   SiJavascript,
@@ -31,10 +32,12 @@ import {
   SiClojure,
   SiErlang,
   SiVuedotjs,
+  SiAngular,
   SiSvelte,
   SiSass,
   SiLess,
   SiTailwindcss,
+  SiBootstrap,
   SiWebpack,
   SiVite,
   SiDocker,
@@ -47,7 +50,11 @@ import {
   SiMarkdown,
   SiGraphql,
   SiPostgresql,
+  SiMongodb,
+  SiRedis,
   SiSqlite,
+  SiShell,
+  SiGnubash,
 } from "react-icons/si";
 import {
   FaFileImage,

@@ -21,7 +21,7 @@ export default function TabBar() {
           onClick={() => setActiveTab(tab.path)}
           className={`
             flex items-center gap-2 px-3 py-2 border-r border-gray-800 cursor-pointer
-            min-w-30 max-w-50 group relative
+            min-w-[120px] max-w-[200px] group relative
             ${
               activeTab === tab.path
                 ? "bg-[#1e1e1e] text-white"
@@ -46,7 +46,7 @@ export default function TabBar() {
           </button>
 
           {activeTab === tab.path && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500" />
           )}
         </div>
       ))}

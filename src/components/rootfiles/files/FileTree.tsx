@@ -9,6 +9,7 @@ import { useEditor } from "@/context/EditorContext";
 export function FileTree({ node }: { node: FileNode }) {
   const [open, setOpen] = useState(false);
   const { selectedFile, setSelectedFile, setFileContent } = useEditor();
+  const [filePaths, setFilePaths] = useState([]);
 
   const handleFileClick = async () => {
     if (node.isDir) return;

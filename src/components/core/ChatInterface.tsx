@@ -24,6 +24,9 @@ import {
   Plus,
   Trash2,
   FolderOpen,
+  AlertCircle,
+  Database,
+  PlayCircle,
 } from "lucide-react";
 import {
   CodeBlock,
@@ -34,6 +37,45 @@ import {
 } from "@/helpers/interfaces/file-types";
 
 const DEFAULT_MODEL = "gemma3:4b";
+
+interface GraphContext {
+  summary: string;
+  cypherSchema: string;
+  sampleQueries: string[];
+  nodesByType: Record<string, number>;
+  edgesByType: Record<string, number>;
+}
+
+interface CodeGraph {
+  nodes: Array<{
+    id: string;
+    type: string;
+    name?: string;
+    path?: string;
+    language?: string;
+    lines?: number;
+  }>;
+  edges: Array<{
+    from: string;
+    to: string;
+    type: string;
+    unresolved?: boolean;
+  }>;
+}
+
+interface CypherQueryResult {
+  success: boolean;
+  data: any[];
+  error?: string;
+  summary: string;
+}
+
+
+interface Neo4jConfig {
+  uri: string;
+  user: string;
+  password: string;
+}
 
 function extractCodeBlocks(content: string): CodeBlock[] {
   const codeBlockRegex = /```(\w+)?\s*(?:\[([^\]]+)\])?\n([\s\S]*?)```/g;
@@ -56,6 +98,7 @@ function extractCodeBlocks(content: string): CodeBlock[] {
   return blocks;
 }
 
+
 function formatMessageContent(content: string): string {
   return content
     .replace(/```(\w+)?\s*(?:\[([^\]]+)\])?\n[\s\S]*?```/g, "")
@@ -66,10 +109,12 @@ function CodeBlockDisplay({
   block,
   onApply,
   onCopy,
+  onExecuteQuery,
 }: {
   block: CodeBlock;
   onApply?: (block: CodeBlock) => void;
   onCopy: (code: string) => void;
+  onExecuteQuery?: (query: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -79,6 +124,8 @@ function CodeBlockDisplay({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const isCypher = block.language === "cypher";
 
   return (
     <div className="my-2 rounded-lg border border-[#3c3c3c] bg-[#1e1e1e] overflow-hidden">
@@ -94,13 +141,22 @@ function CodeBlockDisplay({
               <ChevronRight className="w-4 h-4 text-gray-400" />
             )}
           </button>
-          <FileCode className="w-4 h-4 text-blue-400" />
+          {isCypher ? (
+            <Database className="w-4 h-4 text-green-400" />
+          ) : (
+            <FileCode className="w-4 h-4 text-blue-400" />
+          )}
           <span className="text-sm text-gray-300">
             {block.fileName || block.language}
           </span>
           {block.fileName && (
             <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
               {block.action === "create" ? "NEW" : "EDIT"}
+            </span>
+          )}
+          {isCypher && (
+            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+              CYPHER QUERY
             </span>
           )}
         </div>
@@ -116,6 +172,15 @@ function CodeBlockDisplay({
               <Copy className="w-4 h-4" />
             )}
           </button>
+          {isCypher && onExecuteQuery && (
+            <button
+              onClick={() => onExecuteQuery(block.code)}
+              className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 rounded text-white transition-colors flex items-center gap-1"
+            >
+              <PlayCircle className="w-3 h-3" />
+              Execute
+            </button>
+          )}
           {block.fileName && onApply && (
             <button
               onClick={() => onApply(block)}
@@ -142,10 +207,12 @@ function MessageBubble({
   message,
   onApplyCode,
   onCopyCode,
+  onExecuteQuery
 }: {
   message: Message;
   onApplyCode: (block: CodeBlock) => void;
   onCopyCode: (code: string) => void;
+  onExecuteQuery: (query: string) => void;
 }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -167,9 +234,8 @@ function MessageBubble({
       className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}
     >
       <div
-        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-          isUser ? "bg-blue-600" : "bg-purple-600"
-        }`}
+        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser ? "bg-blue-600" : "bg-purple-600"
+          }`}
       >
         {isUser ? (
           <User className="w-4 h-4 text-white" />
@@ -181,11 +247,10 @@ function MessageBubble({
         className={`flex-1 max-w-[85%] ${isUser ? "flex flex-col items-end" : ""}`}
       >
         <div
-          className={`rounded-lg px-4 py-3 ${
-            isUser
-              ? "bg-blue-600 text-white"
-              : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
-          }`}
+          className={`rounded-lg px-4 py-3 ${isUser
+            ? "bg-blue-600 text-white"
+            : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
+            }`}
         >
           {textContent && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -204,6 +269,7 @@ function MessageBubble({
                 block={block}
                 onApply={onApplyCode}
                 onCopy={onCopyCode}
+                onExecuteQuery={onExecuteQuery}
               />
             ))}
           </div>
@@ -393,11 +459,10 @@ function QuickActions({
           key={action.label}
           onClick={() => onAction(action.prompt)}
           disabled={!hasContext}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${
-            hasContext
-              ? "bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-300"
-              : "bg-[#2c2c2c] text-gray-600 cursor-not-allowed"
-          }`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${hasContext
+            ? "bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-300"
+            : "bg-[#2c2c2c] text-gray-600 cursor-not-allowed"
+            }`}
         >
           <action.icon className="w-3 h-3" />
           {action.label}
@@ -450,9 +515,8 @@ function ConversationList({
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              className={`flex items-center justify-between px-3 py-2 hover:bg-white/10 cursor-pointer ${
-                currentId === conv.id ? "bg-white/10" : ""
-              }`}
+              className={`flex items-center justify-between px-3 py-2 hover:bg-white/10 cursor-pointer ${currentId === conv.id ? "bg-white/10" : ""
+                }`}
               onClick={() => {
                 onSelect(conv.id);
                 setShowList(false);
@@ -481,6 +545,141 @@ function ConversationList({
   );
 }
 
+function Neo4jConnectionPanel({
+  isConnected,
+  onConnect,
+  onDisconnect,
+}: {
+  isConnected: boolean;
+  onConnect: (config: Neo4jConfig) => void;
+  onDisconnect: () => void;
+}) {
+  const [showConfig, setShowConfig] = useState(false);
+  const [config, setConfig] = useState<Neo4jConfig>({
+    uri: "bolt://localhost:7687",
+    user: "neo4j",
+    password: "",
+  });
+
+  return (
+    <div className="border-b border-[#3c3c3c] bg-[#252526] p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-green-400" />
+          <span className="text-sm text-gray-300">Neo4j Graph Database</span>
+          <span
+            className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
+              }`}
+          />
+          <span className="text-xs text-gray-500">
+            {isConnected ? "Connected" : "Disconnected"}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {!isConnected ? (
+            <button
+              onClick={() => setShowConfig(!showConfig)}
+              className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded"
+            >
+              Connect
+            </button>
+          ) : (
+            <button
+              onClick={onDisconnect}
+              className="text-xs px-3 py-1 bg-red-600 hover:bg-red-700 rounded"
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showConfig && !isConnected && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="text"
+            placeholder="URI (e.g., bolt://localhost:7687)"
+            value={config.uri}
+            onChange={(e) => setConfig({ ...config, uri: e.target.value })}
+            className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Username (e.g., neo4j)"
+            value={config.user}
+            onChange={(e) => setConfig({ ...config, user: e.target.value })}
+            className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-sm"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={config.password}
+            onChange={(e) =>
+              setConfig({ ...config, password: e.target.value })
+            }
+            className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => {
+              onConnect(config);
+              setShowConfig(false);
+            }}
+            className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm"
+          >
+            Connect to Neo4j
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function QueryResultPanel({
+  result,
+  onClose,
+}: {
+  result: CypherQueryResult | null;
+  onClose: () => void;
+}) {
+  if (!result) return null;
+
+  return (
+    <div className="border-b border-[#3c3c3c] bg-[#1e1e1e] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {result.success ? (
+            <Check className="w-4 h-4 text-green-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-400" />
+          )}
+          <span className="text-sm font-medium">Query Result</span>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="text-xs text-gray-400 mb-2">{result.summary}</div>
+
+      {result.success && result.data.length > 0 && (
+        <div className="max-h-60 overflow-auto bg-[#0d1117] rounded p-3">
+          <pre className="text-xs text-gray-300">
+            {JSON.stringify(result.data, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {result.error && (
+        <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded">
+          {result.error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ChatInterface() {
   const { selectedFile, fileContent, setFileContent } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -498,9 +697,58 @@ export default function ChatInterface() {
   const [currentConversationId, setCurrentConversationId] = useState<
     string | null
   >(null);
+  const [neo4jConnected, setNeo4jConnected] = useState(false);
+  const [graphContext, setGraphContext] = useState<GraphContext | null>(null);
+  const [queryResult, setQueryResult] = useState<CypherQueryResult | null>(
+    null
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const checkNeo4j = async () => {
+      try {
+        const connected = await invoke<boolean>("check_neo4j_connection");
+        setNeo4jConnected(connected);
+      } catch {
+        setNeo4jConnected(false);
+      }
+    };
+    checkNeo4j();
+    const interval = setInterval(checkNeo4j, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadGraphContext = async () => {
+      try {
+        const savedGraph = localStorage.getItem("codeGraph");
+        if (savedGraph) {
+          const graph: CodeGraph = JSON.parse(savedGraph);
+          const context = await invoke<GraphContext>("generate_graph_context", {
+            graph,
+          });
+          setGraphContext(context);
+
+          // Auto-store in Neo4j if connected
+          if (neo4jConnected) {
+            try {
+              const result = await invoke<string>("store_graph_in_neo4j", {
+                graph,
+              });
+              console.log("Graph stored in Neo4j:", result);
+            } catch (error) {
+              console.error("Failed to store in Neo4j:", error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load graph context:", error);
+      }
+    };
+    loadGraphContext();
+  }, [neo4jConnected]);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -583,34 +831,155 @@ export default function ChatInterface() {
     }
   }, [selectedFile, fileContent]);
 
-  const buildSystemPrompt = useCallback(() => {
-    let systemPrompt = `You are an expert AI coding assistant integrated into a code editor called GEN CODE. You help developers understand, write, and improve code.
+  const handleConnectNeo4j = async (config: Neo4jConfig) => {
+    try {
+      const result = await invoke<string>("connect_neo4j", {
+        uri: config.uri,
+        user: config.user,
+        password: config.password,
+      });
+
+      setNeo4jConnected(true);
+
+      const successMsg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: result,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, successMsg]);
+
+      // Store graph if available
+      const savedGraph = localStorage.getItem("codeGraph");
+      if (savedGraph) {
+        const graph: CodeGraph = JSON.parse(savedGraph);
+        const storeResult = await invoke<string>("store_graph_in_neo4j", {
+          graph,
+        });
+
+        const storeMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "system",
+          content: storeResult,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, storeMsg]);
+      }
+    } catch (error) {
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: `Failed to connect to Neo4j: ${error}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    }
+  };
+
+  const handleDisconnectNeo4j = async () => {
+    try {
+      const result = await invoke<string>("disconnect_neo4j");
+      setNeo4jConnected(false);
+
+      const msg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: result,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, msg]);
+    } catch (error) {
+      console.error("Failed to disconnect:", error);
+    }
+  };
+
+  const handleExecuteQuery = async (query: string) => {
+    try {
+      const result = await invoke<CypherQueryResult>("execute_cypher_query", {
+        cypher: query,
+      });
+
+      setQueryResult(result);
+
+      // Add result to chat
+      const resultMsg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: `**Query executed successfully**\n\n${result.summary}\n\nFound ${result.data.length} results.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, resultMsg]);
+
+      // If AI generated the query, add the results as context for next query
+      if (result.data.length > 0) {
+        const contextMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "system",
+          content: `Query results added to context:\n\`\`\`json\n${JSON.stringify(result.data.slice(0, 5), null, 2)}\n\`\`\`${result.data.length > 5 ? `\n... and ${result.data.length - 5} more results` : ""}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, contextMsg]);
+      }
+    } catch (error) {
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: `Query execution failed: ${error}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    }
+  };
+
+
+  const buildSystemPrompt = useCallback(async () => {
+    let systemPrompt = `You are an expert AI coding assistant with access to a Neo4j graph database containing the complete code structure.
 
 Your capabilities:
 - Analyze and explain code
-- Write new code and suggest improvements
-- Debug issues and fix bugs
-- Refactor code for better quality
-- Write tests and documentation
+- Query the Neo4j graph database using Cypher
+- Find dependencies, relationships, and patterns
+- Generate Cypher queries to answer questions about code structure
+- Provide insights based on graph analysis
 
 Guidelines:
-- Be concise but thorough
-- Always provide code examples when relevant
-- Use markdown code blocks with language specifiers
-- When suggesting file changes, use the format: \`\`\`language [filename]\ncode\n\`\`\`
-- Explain your reasoning when making suggestions
-- If you need to create a new file, specify the full path in the filename
+- When asked about code structure, dependencies, or relationships, generate Cypher queries
+- Always use \`\`\`cypher blocks for queries
+- Explain the query results in plain language
+- Use LIMIT to keep results manageable (default 10-20 results)
+- When generating queries, follow Neo4j best practices
+
+Database Status:
+- Neo4j: ${neo4jConnected ? "✓ Connected and ready" : "✗ Not connected"}
+${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- The code graph is stored and queryable" : "- Connect to Neo4j to enable graph queries"}
+
 `;
 
+    if (neo4jConnected && graphContext) {
+      try {
+        const savedGraph = localStorage.getItem("codeGraph");
+        if (savedGraph) {
+          const graph: CodeGraph = JSON.parse(savedGraph);
+          const queryContext = await invoke<string>("graph_to_query_context", {
+            graph,
+          });
+          systemPrompt += "\n\n" + queryContext;
+        }
+      } catch (error) {
+        console.error("Failed to add graph context:", error);
+      }
+    }
+
     if (contextFiles.length > 0) {
-      systemPrompt += "\n\nCurrent context files:\n";
+      systemPrompt += "\n\nCurrent file context:\n";
       contextFiles.forEach((file) => {
         systemPrompt += `\n--- ${file.path} ---\n\`\`\`${file.language}\n${file.content}\n\`\`\`\n`;
       });
     }
 
     return systemPrompt;
-  }, [contextFiles]);
+  }, [contextFiles, graphContext, neo4jConnected]);
+
 
   const sendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || isLoading) return;
@@ -630,15 +999,7 @@ Guidelines:
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `**Ollama is not connected**
-
-To use the AI assistant, please:
-
-1. **Install Ollama** (if not installed): Visit [ollama.ai](https://ollama.ai) and download it
-2. **Start Ollama**: Run \`ollama serve\` in your terminal
-3. **Pull a model**: Run \`ollama pull codellama:7b\` or \`ollama pull llama2\`
-
-Once Ollama is running, the connection status will turn green and you can chat with the AI.`,
+        content: "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
         timestamp: new Date(),
         isStreaming: false,
       };
@@ -658,8 +1019,9 @@ Once Ollama is running, the connection status will turn green and you can chat w
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
+      const systemPrompt = await buildSystemPrompt();
       const chatMessages: ChatMessage[] = [
-        { role: "system", content: buildSystemPrompt() },
+        { role: "system", content: systemPrompt },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: userMessage },
       ];
@@ -671,8 +1033,8 @@ Once Ollama is running, the connection status will turn green and you can chat w
 
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsg.id ? { ...m, isStreaming: false } : m,
-        ),
+          m.id === assistantMsg.id ? { ...m, isStreaming: false } : m
+        )
       );
     } catch (error) {
       console.error("Chat error:", error);
@@ -680,19 +1042,12 @@ Once Ollama is running, the connection status will turn green and you can chat w
         prev.map((m) =>
           m.id === assistantMsg.id
             ? {
-                ...m,
-                content: ` **Error connecting to Ollama**
-
-${error instanceof Error ? error.message : String(error)}
-
-**Troubleshooting:**
-- Make sure Ollama is running: \`ollama serve\`
-- Check if the model is installed: \`ollama list\`
-- Try pulling a model: \`ollama pull ${model}\``,
-                isStreaming: false,
-              }
-            : m,
-        ),
+              ...m,
+              content: `**Error**: ${error}`,
+              isStreaming: false,
+            }
+            : m
+        )
       );
     }
 
@@ -803,13 +1158,12 @@ ${error instanceof Error ? error.message : String(error)}
             <Sparkles className="w-5 h-5 text-purple-400" />
             <span className="font-medium text-white">AI Assistant</span>
             <span
-              className={`w-2 h-2 rounded-full ${
-                connectionStatus === "connected"
-                  ? "bg-green-500"
-                  : connectionStatus === "checking"
-                    ? "bg-yellow-500 animate-pulse"
-                    : "bg-red-500"
-              }`}
+              className={`w-2 h-2 rounded-full ${connectionStatus === "connected"
+                ? "bg-green-500"
+                : connectionStatus === "checking"
+                  ? "bg-yellow-500 animate-pulse"
+                  : "bg-red-500"
+                }`}
               title={
                 connectionStatus === "connected"
                   ? "Connected to Ollama"
@@ -844,6 +1198,17 @@ ${error instanceof Error ? error.message : String(error)}
           </button>
         </div>
       </div>
+
+      <Neo4jConnectionPanel
+        isConnected={neo4jConnected}
+        onConnect={handleConnectNeo4j}
+        onDisconnect={handleDisconnectNeo4j}
+      />
+
+      <QueryResultPanel
+        result={queryResult}
+        onClose={() => setQueryResult(null)}
+      />
 
       <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500">
         Model: {model}
@@ -888,6 +1253,14 @@ ${error instanceof Error ? error.message : String(error)}
                 </p>
               </div>
             )}
+
+            {neo4jConnected && (
+              <span className="flex items-center gap-1 text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded">
+                <Database className="w-3 h-3" />
+                Graph DB Active
+              </span>
+            )}
+
             {connectionStatus === "connected" && contextFiles.length === 0 && (
               <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-400 text-sm max-w-md">
                 <p className="font-medium">💡 Tip</p>
@@ -906,6 +1279,7 @@ ${error instanceof Error ? error.message : String(error)}
                 message={message}
                 onApplyCode={handleApplyCode}
                 onCopyCode={handleCopyCode}
+                onExecuteQuery={handleExecuteQuery}
               />
             ))}
             {/* <div ref={messagesEndRef} /> */}
@@ -929,7 +1303,7 @@ ${error instanceof Error ? error.message : String(error)}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder={
-                connectionStatus === "disconnected"
+                neo4jConnected || connectionStatus === "disconnected"
                   ? "Type your message... (Ollama not connected)"
                   : contextFiles.length > 0
                     ? "Ask about the code..."

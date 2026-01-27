@@ -1,4 +1,5 @@
 use futures::StreamExt;
+use neo4rs::{Graph, query};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,6 +11,498 @@ use tauri::{Emitter, State, Window};
 use tokio::fs;
 use tokio::task;
 use tree_sitter::{Language, Parser, Node};
+
+// ============================================================================
+// NEO4J STATE
+// ============================================================================
+
+pub struct Neo4jState {
+    graph: Arc<Mutex<Option<Graph>>>,
+}
+
+impl Neo4jState {
+    pub fn new() -> Self {
+        Neo4jState {
+            graph: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub async fn connect(&self, uri: &str, user: &str, password: &str) -> Result<(), String> {
+        let graph = Graph::new(uri, user, password)
+            .await
+            .map_err(|e| format!("Failed to connect to Neo4j: {}", e))?;
+        
+        let mut g = self.graph.lock().unwrap();
+        *g = Some(graph);
+        Ok(())
+    }
+
+    pub fn get_graph(&self) -> Result<Graph, String> {
+        let g = self.graph.lock().unwrap();
+        g.as_ref()
+            .ok_or_else(|| "Not connected to Neo4j".to_string())
+            .cloned()
+    }
+}
+
+// ============================================================================
+// CODE GRAPH STRUCTURES
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodeGraphNode {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub node_type: String,
+    pub name: Option<String>,
+    pub path: Option<String>,
+    pub language: Option<String>,
+    pub lines: Option<usize>,
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodeGraphEdge {
+    pub from: String,
+    pub to: String,
+    #[serde(rename = "type")]
+    pub edge_type: String,
+    pub unresolved: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodeGraph {
+    pub nodes: Vec<CodeGraphNode>,
+    pub edges: Vec<CodeGraphEdge>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphContext {
+    pub summary: String,
+    pub cypher_schema: String,
+    pub sample_queries: Vec<String>,
+    pub nodes_by_type: HashMap<String, usize>,
+    pub edges_by_type: HashMap<String, usize>,
+    pub graph_statistics: GraphStatistics,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphStatistics {
+    pub total_nodes: usize,
+    pub total_edges: usize,
+    pub max_depth: usize,
+    pub connected_components: usize,
+    pub avg_connections_per_node: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CypherQueryResult {
+    pub success: bool,
+    pub data: Vec<serde_json::Value>,
+    pub error: Option<String>,
+    pub summary: String,
+}
+
+// ============================================================================
+// NEO4J OPERATIONS
+// ============================================================================
+
+impl CodeGraph {
+    pub async fn store_in_neo4j(
+        &self,
+        graph: &Graph,
+    ) -> Result<String, String> {
+        // Clear existing data
+        graph
+            .run(query("MATCH (n) DETACH DELETE n"))
+            .await
+            .map_err(|e| format!("Failed to clear database: {}", e))?;
+
+        // Create nodes
+        for node in &self.nodes {
+            let node_type = node.node_type.to_uppercase();
+            let id = node.id.clone();
+            let name = node.name.clone().unwrap_or_else(|| "unknown".to_string());
+            let path = node.path.clone().unwrap_or_default();
+
+            let mut q = format!(
+                "CREATE (n:{} {{id: $id, name: $name, path: $path",
+                node_type
+            );
+
+            if let Some(_lang) = &node.language {
+                q.push_str(", language: $language");
+            }
+
+            if let Some(_lines) = node.lines {
+                q.push_str(", lines: $lines");
+            }
+
+            q.push_str("})");
+
+            let mut cypher = query(&q)
+                .param("id", id)
+                .param("name", name)
+                .param("path", path);
+
+            if let Some(lang) = &node.language {
+                cypher = cypher.param("language", lang.clone());
+            }
+
+            if let Some(lines) = node.lines {
+                cypher = cypher.param("lines", lines as i64);
+            }
+
+            graph
+                .run(cypher)
+                .await
+                .map_err(|e| format!("Failed to create node: {}", e))?;
+        }
+
+        // Create relationships
+        for edge in &self.edges {
+            let cypher = query(
+                "MATCH (a {id: $from}), (b {id: $to}) CREATE (a)-[:$rel_type]->(b)"
+            )
+            .param("from", edge.from.clone())
+            .param("to", edge.to.clone())
+            .param("rel_type", edge.edge_type.clone());
+
+            graph
+                .run(cypher)
+                .await
+                .map_err(|e| format!("Failed to create relationship: {}", e))?;
+        }
+
+        Ok(format!(
+            "Successfully stored {} nodes and {} edges in Neo4j",
+            self.nodes.len(),
+            self.edges.len()
+        ))
+    }
+
+    pub fn generate_context(&self) -> GraphContext {
+        let mut nodes_by_type: HashMap<String, usize> = HashMap::new();
+        let mut edges_by_type: HashMap<String, usize> = HashMap::new();
+
+        for node in &self.nodes {
+            *nodes_by_type.entry(node.node_type.clone()).or_insert(0) += 1;
+        }
+
+        for edge in &self.edges {
+            *edges_by_type.entry(edge.edge_type.clone()).or_insert(0) += 1;
+        }
+
+        let total_nodes = self.nodes.len();
+        let total_edges = self.edges.len();
+        let avg_connections = if total_nodes > 0 {
+            (total_edges as f64 * 2.0) / total_nodes as f64
+        } else {
+            0.0
+        };
+
+        let summary = self.generate_summary(&nodes_by_type, &edges_by_type);
+        let cypher_schema = self.generate_cypher_schema(&nodes_by_type, &edges_by_type);
+        let sample_queries = self.generate_sample_queries();
+
+        GraphContext {
+            summary,
+            cypher_schema,
+            sample_queries,
+            nodes_by_type,
+            edges_by_type,
+            graph_statistics: GraphStatistics {
+                total_nodes,
+                total_edges,
+                max_depth: 10,
+                connected_components: 1,
+                avg_connections_per_node: avg_connections,
+            },
+        }
+    }
+
+    fn generate_summary(&self, nodes_by_type: &HashMap<String, usize>, edges_by_type: &HashMap<String, usize>) -> String {
+        let mut summary = String::from("# Code Graph Summary\n\n");
+        
+        summary.push_str("## Nodes\n");
+        for (node_type, count) in nodes_by_type {
+            summary.push_str(&format!("- {}: {} nodes\n", node_type, count));
+        }
+        
+        summary.push_str("\n## Relationships\n");
+        for (edge_type, count) in edges_by_type {
+            summary.push_str(&format!("- {}: {} edges\n", edge_type, count));
+        }
+        
+        summary.push_str(&format!("\n## Total Statistics\n"));
+        summary.push_str(&format!("- Total Nodes: {}\n", self.nodes.len()));
+        summary.push_str(&format!("- Total Edges: {}\n", self.edges.len()));
+        
+        summary
+    }
+
+    fn generate_cypher_schema(&self, nodes_by_type: &HashMap<String, usize>, edges_by_type: &HashMap<String, usize>) -> String {
+        let mut schema = String::from("# Neo4j Graph Schema\n\n");
+        
+        schema.push_str("## Node Labels\n");
+        for (node_type, _) in nodes_by_type {
+            schema.push_str(&format!("- :{} (id: String, name: String, path: String, language: String, lines: Integer)\n", node_type.to_uppercase()));
+        }
+        
+        schema.push_str("\n## Relationship Types\n");
+        for (edge_type, _) in edges_by_type {
+            schema.push_str(&format!("- :{}\n", edge_type));
+        }
+        
+        schema
+    }
+
+    fn generate_sample_queries(&self) -> Vec<String> {
+        vec![
+            "// Find all files\nMATCH (f:FILE) RETURN f.path, f.language LIMIT 10".to_string(),
+            "// Find all functions in a specific file\nMATCH (file:FILE)-[:CONTAINS]->(func:FUNCTION)\nWHERE file.path CONTAINS 'example.js'\nRETURN func.name, func.lines".to_string(),
+            "// Find function call chains\nMATCH path = (f1:FUNCTION)-[:CALLS*1..3]->(f2:FUNCTION)\nRETURN path LIMIT 10".to_string(),
+            "// Find all imports for a file\nMATCH (file:FILE)-[:IMPORTS_FROM]->(imported:FILE)\nWHERE file.path CONTAINS 'main.js'\nRETURN imported.path".to_string(),
+            "// Find classes that extend other classes\nMATCH (child:CLASS)-[:EXTENDS]->(parent:CLASS)\nRETURN child.name, parent.name".to_string(),
+            "// Find most connected nodes\nMATCH (n)-[r]-()\nRETURN n.name, n.type, labels(n)[0] as label, count(r) AS connections\nORDER BY connections DESC\nLIMIT 10".to_string(),
+            "// Find circular dependencies\nMATCH path = (a:FILE)-[:IMPORTS_FROM*2..5]->(a)\nRETURN path LIMIT 5".to_string(),
+            "// Find files with no dependencies\nMATCH (f:FILE)\nWHERE NOT (f)-[:IMPORTS_FROM]-()\nRETURN f.path, f.language".to_string(),
+        ]
+    }
+
+    pub fn to_graph_query_context(&self) -> String {
+        let context = self.generate_context();
+        
+        format!(
+            r#"# Neo4j Knowledge Graph Context
+
+## Graph Overview
+{}
+
+## Available Node Types
+{}
+
+## Available Relationship Types
+{}
+
+## Sample Cypher Queries
+You can query this graph database using these patterns:
+
+{}
+
+## Statistics
+- Total Nodes: {}
+- Total Edges: {}
+- Average Connections per Node: {:.2}
+
+## Query Guidelines
+1. Use MATCH clauses to find patterns
+2. Use WHERE to filter results
+3. Use RETURN to specify what to return
+4. Use LIMIT to control result count
+5. Available node types: {}
+6. Available relationship types: {}
+
+## Important Notes
+- The graph is stored in Neo4j and can be queried in real-time
+- When the user asks questions about code structure, dependencies, or relationships, generate Cypher queries
+- Always include LIMIT in queries to avoid overwhelming results
+- Use CONTAINS for partial string matching in paths
+
+When generating queries:
+1. Start with MATCH to find patterns
+2. Add WHERE clauses for filtering
+3. Use RETURN to get specific properties
+4. Add ORDER BY and LIMIT for manageable results
+"#,
+            context.summary,
+            context.nodes_by_type
+                .iter()
+                .map(|(k, v)| format!("- :{} ({} nodes)", k.to_uppercase(), v))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            context.edges_by_type
+                .iter()
+                .map(|(k, v)| format!("- :{} ({} relationships)", k, v))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            context.sample_queries
+                .iter()
+                .map(|q| format!("```cypher\n{}\n```", q))
+                .collect::<Vec<_>>()
+                .join("\n\n"),
+            context.graph_statistics.total_nodes,
+            context.graph_statistics.total_edges,
+            context.graph_statistics.avg_connections_per_node,
+            context.nodes_by_type.keys().map(|k| k.to_uppercase()).collect::<Vec<_>>().join(", "),
+            context.edges_by_type.keys().map(|k| k.as_str()).collect::<Vec<_>>().join(", ")
+        )
+    }
+    pub fn to_cypher_import_script(&self) -> String {
+        let mut script = String::new();
+        
+        script.push_str("// Clear existing data\nMATCH (n) DETACH DELETE n;\n\n");
+        
+        // Create nodes
+        for node in &self.nodes {
+            let node_type = node.node_type.to_uppercase();
+            let id = node.id.replace("'", "\\'");
+            let name = node.name.clone().unwrap_or_else(|| "unknown".to_string()).replace("'", "\\'");
+            let path = node.path.clone().unwrap_or_default().replace("'", "\\'");
+            
+            let mut props = format!(
+                "id: '{}', name: '{}', path: '{}'",
+                id, name, path
+            );
+
+            if let Some(lang) = &node.language {
+                props.push_str(&format!(", language: '{}'", lang.replace("'", "\\'")));
+            }
+
+            if let Some(lines) = node.lines {
+                props.push_str(&format!(", lines: {}", lines));
+            }
+
+            script.push_str(&format!("CREATE (n:{} {{{}}});\n", node_type, props));
+        }
+
+        script.push_str("\n");
+
+        // Create relationships
+        for edge in &self.edges {
+            let from = edge.from.replace("'", "\\'");
+            let to = edge.to.replace("'", "\\'");
+            
+            script.push_str(&format!(
+                "MATCH (a {{id: '{}'}}), (b {{id: '{}'}})\nCREATE (a)-[:{}]->(b);\n",
+                from, to, edge.edge_type
+            ));
+        }
+
+        script
+    }
+}
+
+// ============================================================================
+// NEO4J TAURI COMMANDS
+// ============================================================================
+
+#[tauri::command]
+async fn connect_neo4j(
+    uri: String,
+    user: String,
+    password: String,
+    state: State<'_, Neo4jState>,
+) -> Result<String, String> {
+    state.connect(&uri, &user, &password).await?;
+    Ok("Successfully connected to Neo4j".to_string())
+}
+
+#[tauri::command]
+async fn disconnect_neo4j(state: State<'_, Neo4jState>) -> Result<String, String> {
+    let mut g = state.graph.lock().unwrap();
+    *g = None;
+    Ok("Disconnected from Neo4j".to_string())
+}
+
+#[tauri::command]
+async fn check_neo4j_connection(state: State<'_, Neo4jState>) -> Result<bool, String> {
+    let g = state.graph.lock().unwrap();
+    Ok(g.is_some())
+}
+
+#[tauri::command]
+async fn store_graph_in_neo4j(
+    graph: CodeGraph,
+    state: State<'_, Neo4jState>,
+) -> Result<String, String> {
+    let neo4j = state.get_graph()?;
+    graph.store_in_neo4j(&neo4j).await
+}
+
+#[tauri::command]
+async fn execute_cypher_query(
+    cypher: String,
+    state: State<'_, Neo4jState>,
+) -> Result<CypherQueryResult, String> {
+    let graph = state.get_graph()?;
+    
+    let mut result = graph
+        .execute(query(&cypher))
+        .await
+        .map_err(|e| format!("Query execution failed: {}", e))?;
+
+    let mut data: Vec<serde_json::Value> = Vec::new();
+    let mut row_count = 0;
+
+while let Ok(Some(row)) = result.next().await {
+    row_count += 1;
+    let mut row_data = serde_json::Map::new();
+
+    // Use row.to::<HashMap<...>>() to get all columns since we can't iterate keys directly on Row in neo4rs 0.7
+    if let Ok(row_map) = row.to::<HashMap<String, serde_json::Value>>() {
+        for (key, value) in row_map {
+            row_data.insert(key, value);
+        }
+    }
+
+    data.push(serde_json::Value::Object(row_data));
+
+    if row_count >= 100 {
+        break;
+    }
+}
+
+
+    let summary = format!("Query returned {} rows", data.len());
+
+    Ok(CypherQueryResult {
+        success: true,
+        data,
+        error: None,
+        summary,
+    })
+}
+
+#[tauri::command]
+async fn get_graph_stats(state: State<'_, Neo4jState>) -> Result<serde_json::Value, String> {
+    let graph = state.get_graph()?;
+
+    let node_count_query = "MATCH (n) RETURN count(n) as count";
+    let mut result = graph
+        .execute(query(node_count_query))
+        .await
+        .map_err(|e| format!("Failed to get node count: {}", e))?;
+
+    let node_count = if let Ok(Some(row)) = result.next().await {
+        row.get::<i64>("count").unwrap_or(0)
+    } else {
+        0
+    };
+
+    let rel_count_query = "MATCH ()-[r]->() RETURN count(r) as count";
+    let mut result = graph
+        .execute(query(rel_count_query))
+        .await
+        .map_err(|e| format!("Failed to get relationship count: {}", e))?;
+
+    let rel_count = if let Ok(Some(row)) = result.next().await {
+        row.get::<i64>("count").unwrap_or(0)
+    } else {
+        0
+    };
+
+    Ok(serde_json::json!({
+        "nodes": node_count,
+        "relationships": rel_count,
+        "connected": true
+    }))
+}
+
+// ============================================================================
+// EXISTING PARSER STRUCTURES (Keep all your existing code)
+// ============================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ParsedFile {
@@ -56,8 +549,9 @@ impl ParseMetadata {
     }
 }
 
+
 // ============================================================================
-// PARSER STATE
+// PARSER STATE (Keep all existing parser code)
 // ============================================================================
 
 pub struct ParserState {
@@ -111,7 +605,6 @@ impl ParserState {
     fn initialize_parsers(&mut self) {
         let mut parsers = self.parsers.lock().unwrap();
         
-        // Use the language() functions - works on all platforms!
         Self::add_parser(&mut parsers, "javascript", tree_sitter_javascript::language());
         Self::add_parser(&mut parsers, "typescript", tree_sitter_typescript::language_typescript());
         Self::add_parser(&mut parsers, "tsx", tree_sitter_typescript::language_tsx());
@@ -126,7 +619,6 @@ impl ParserState {
     }
 
     fn add_parser(parsers: &mut HashMap<String, Parser>, name: &str, language: Language) {
-        // Parser::new() returns Parser directly, not Result
         let mut parser = Parser::new();
         
         match parser.set_language(language) {
@@ -266,7 +758,39 @@ impl ParserState {
 }
 
 // ============================================================================
-// TAURI COMMANDS
+// NEW TAURI COMMANDS FOR CODE GRAPH
+// ============================================================================
+
+#[tauri::command]
+fn generate_graph_context(graph: CodeGraph) -> Result<GraphContext, String> {
+    Ok(graph.generate_context())
+}
+
+#[tauri::command]
+fn graph_to_cypher_script(graph: CodeGraph) -> Result<String, String> {
+    Ok(graph.to_cypher_import_script())
+}
+
+#[tauri::command]
+fn graph_to_query_context(graph: CodeGraph) -> Result<String, String> {
+    Ok(graph.to_graph_query_context())
+}
+
+#[tauri::command]
+fn analyze_graph_structure(graph: CodeGraph) -> Result<serde_json::Value, String> {
+    let context = graph.generate_context();
+    
+    Ok(serde_json::json!({
+        "statistics": context.graph_statistics,
+        "nodeTypes": context.nodes_by_type,
+        "edgeTypes": context.edges_by_type,
+        "summary": context.summary,
+        "cypherSchema": context.cypher_schema,
+    }))
+}
+
+// ============================================================================
+// EXISTING TAURI COMMANDS (Keep all your existing commands)
 // ============================================================================
 
 #[tauri::command]
@@ -335,10 +859,6 @@ fn get_supported_languages(
     Ok(result)
 }
 
-// ============================================================================
-// Keep all your other existing code below (read_file_content, greet, etc.)
-// ============================================================================
-
 #[tauri::command]
 async fn read_file_content(paths: Vec<String>) -> Vec<(String, String)> {
     let mut handles = Vec::new();
@@ -386,8 +906,6 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
     eprintln!("Reading directory: {}", dir.display());
 
     let mut entries = Vec::new();
-
-    // Define ignored directories
     let ignored_dirs = ["node_modules", "target", ".git", "dist", "build", ".idea", ".vscode", "out"];
 
     for entry in std_fs::read_dir(dir)
@@ -397,43 +915,26 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
         let path = entry.path();
         let file_name = entry.file_name().to_string_lossy().to_string();
 
-        // Check if file/directory should be ignored
         if ignored_dirs.contains(&file_name.as_str()) || file_name.starts_with('.') {
             eprintln!("Skipping ignored path: {}", path.display());
             continue;
         }
 
         let metadata = entry.metadata().map_err(|e| {
-            format!(
-                "Failed to read metadata for {}: {}",
-                path.display(),
-                e
-            )
+            format!("Failed to read metadata for {}: {}", path.display(), e)
         })?;
 
-        eprintln!(
-            "  Found: {} (is_dir: {})",
-            path.display(),
-            metadata.is_dir()
-        );
+        eprintln!("  Found: {} (is_dir: {})", path.display(), metadata.is_dir());
 
         let children = if metadata.is_dir() {
             eprintln!("    Recursing into: {}", path.display());
             match read_dir_recursive(&path) {
                 Ok(child_entries) => {
-                    eprintln!(
-                        "    Found {} children in {}",
-                        child_entries.len(),
-                        path.display()
-                    );
+                    eprintln!("    Found {} children in {}", child_entries.len(), path.display());
                     Some(child_entries)
                 }
                 Err(e) => {
-                    eprintln!(
-                        "    Warning: Failed to read subdirectory {}: {}",
-                        path.display(),
-                        e
-                    );
+                    eprintln!("    Warning: Failed to read subdirectory {}: {}", path.display(), e);
                     Some(Vec::new())
                 }
             }
@@ -449,11 +950,7 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<DirEntryInfo>, String> {
         });
     }
 
-    eprintln!(
-        "Directory {} returned {} entries",
-        dir.display(),
-        entries.len()
-    );
+    eprintln!("Directory {} returned {} entries", dir.display(), entries.len());
     Ok(entries)
 }
 
@@ -465,7 +962,6 @@ fn write_file_content(path: &str, content: &str) -> Result<(), String> {
 #[tauri::command]
 fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
     eprintln!("read_directory called with path: {}", path);
-
     let dir = Path::new(path);
 
     if !dir.exists() {
@@ -478,7 +974,6 @@ fn read_directory(path: &str) -> Result<Vec<DirEntryInfo>, String> {
 
     let result = read_dir_recursive(dir)?;
     eprintln!("Total entries at root level: {}", result.len());
-
     Ok(result)
 }
 
@@ -584,7 +1079,6 @@ async fn chat_with_ollama(
                     match serde_json::from_str::<OllamaChatResponse>(line) {
                         Ok(response) => {
                             full_response.push_str(&response.message.content);
-
                             let event = ChatStreamEvent {
                                 content: response.message.content,
                                 done: response.done,
@@ -776,7 +1270,7 @@ async fn create_terminal(
             let n = {
                 let mut reader_guard = reader.lock().unwrap();
                 match reader_guard.read(&mut buf) {
-                    Ok(0) => break, // EOF
+                    Ok(0) => break,
                     Ok(n) => n,
                     Err(e) => {
                         eprintln!("Error reading from PTY: {}", e);
@@ -840,8 +1334,9 @@ fn close_terminal(
     Ok(())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-// Your FIXED run() function - copy this entire block
+// ============================================================================
+// MAIN RUN FUNCTION
+// ============================================================================
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -849,8 +1344,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
-        .manage(TerminalState::default())     // ✓ Terminal state
-        .manage(ParserState::new())           // ← ADD THIS LINE!
+        .manage(TerminalState::default())
+        .manage(ParserState::new())
+        .manage(Neo4jState::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             read_directory,
@@ -869,11 +1365,19 @@ pub fn run() {
             write_terminal,
             resize_terminal,
             close_terminal,
-            // ← ADD THESE NEW COMMANDS:
             parse_files,
             parse_single_file,
             read_and_parse_files,
-            get_supported_languages
+            get_supported_languages,
+            // NEW GRAPH COMMANDS
+            connect_neo4j,
+            disconnect_neo4j,
+            check_neo4j_connection,
+            store_graph_in_neo4j,
+            execute_cypher_query,
+            get_graph_stats,
+            generate_graph_context,
+            graph_to_query_context,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

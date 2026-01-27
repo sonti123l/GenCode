@@ -6,8 +6,9 @@ import {
   getFunctionsInFile,
   GraphNode,
 } from "../rootfiles/buildCodeGraphFromFiles";
-import { Network, List } from "lucide-react";
+import { Network, List, Download, FileCode, GitBranch, Activity } from "lucide-react";
 import GraphVisualizer from "./GraphVisualizer";
+
 
 type ViewMode = 'stats' | 'visual';
 
@@ -33,8 +34,14 @@ export default function CodeGraphViewer() {
 
   if (!graph) {
     return (
-      <div className="p-8 text-white">
-        <p>No code graph available. Please open a project first.</p>
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="text-center space-y-4">
+          <FileCode className="w-16 h-16 text-gray-600 mx-auto" />
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-2">No Code Graph Available</h2>
+            <p className="text-gray-400">Please open a project to analyze your codebase</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -54,60 +61,88 @@ export default function CodeGraphViewer() {
   const dependencies = selectedFile ? getFileDependencies(graph, selectedFile) : [];
 
   return (
-    <div className="min-h-screen w-full bg-gray-950 text-white">
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Code Graph Viewer</h1>
-          <p className="text-sm text-gray-400">Explore your codebase structure and relationships</p>
+    <div className="h-screen w-full bg-gray-950 text-white flex flex-col overflow-hidden">
+      {/* Top Navigation Bar */}
+      <div className="flex items-center justify-between px-6 py-4 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Network className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Code Graph Viewer</h1>
+              <p className="text-xs text-gray-400">Explore your codebase structure and relationships</p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setViewMode('stats')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${viewMode === 'stats'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
+              viewMode === 'stats'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            }`}
           >
             <List className="w-4 h-4" />
-            <span className="text-sm">Statistics View</span>
+            <span className="text-sm font-medium">Statistics</span>
           </button>
 
           <button
             onClick={() => setViewMode('visual')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${viewMode === 'visual'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
+              viewMode === 'visual'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            }`}
           >
             <Network className="w-4 h-4" />
-            <span className="text-sm">Visual Graph</span>
+            <span className="text-sm font-medium">Visual Graph</span>
+          </button>
+
+          <div className="w-px h-8 bg-gray-700 mx-2" />
+
+          <button
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "code-graph.json";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm font-medium"
+          >
+            <Download className="w-4 h-4" />
+            Export
           </button>
         </div>
       </div>
 
-      {/* Content */}
-      {viewMode === 'stats' ? (
-        <StatisticsView
-          graph={graph}
-          stats={stats}
-          nodesByType={nodesByType}
-          edgesByType={edgesByType}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          selectedFunction={selectedFunction}
-          setSelectedFunction={setSelectedFunction}
-          functions={functions}
-          functionCalls={functionCalls}
-          dependencies={dependencies}
-        />
-      ) : (
-        <div className="h-screen">
-
-          <GraphVisualizer data={graph} />
-        </div>
-      )}
+      {/* Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'stats' ? (
+          <StatisticsView
+            graph={graph}
+            stats={stats}
+            nodesByType={nodesByType}
+            edgesByType={edgesByType}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            selectedFunction={selectedFunction}
+            setSelectedFunction={setSelectedFunction}
+            functions={functions}
+            functionCalls={functionCalls}
+            dependencies={dependencies}
+          />
+        ) : (
+          <div className="h-full">
+            <GraphVisualizer data={graph} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -127,162 +162,264 @@ function StatisticsView({
   dependencies
 }: any) {
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Statistics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard title="Total Files" value={graph.files.length} icon="📁" />
-          <StatCard title="Total Nodes" value={graph.nodes.length} icon="🔵" />
-          <StatCard title="Total Edges" value={graph.edges.length} icon="🔗" />
-          <StatCard title="Functions" value={nodesByType["function"] || 0} icon="⚡" />
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Total Files"
+            value={graph.files.length}
+            icon={<FileCode className="w-5 h-5" />}
+            color="blue"
+          />
+          <MetricCard
+            title="Total Nodes"
+            value={graph.nodes.length}
+            icon={<Activity className="w-5 h-5" />}
+            color="purple"
+          />
+          <MetricCard
+            title="Relationships"
+            value={graph.edges.length}
+            icon={<GitBranch className="w-5 h-5" />}
+            color="green"
+          />
+          <MetricCard
+            title="Functions"
+            value={nodesByType["function"] || 0}
+            icon={<Network className="w-5 h-5" />}
+            color="orange"
+          />
         </div>
 
-        {/* Parse Stats */}
+        {/* Parse Statistics */}
         {stats && (
-          <div className="bg-gray-900 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Parse Statistics</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-gray-400">Successful</p>
-                <p className="text-2xl font-bold text-green-500">{stats.successful}</p>
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="w-5 h-5 text-blue-400" />
+              <h2 className="text-lg font-semibold">Parse Statistics</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <p className="text-xs text-gray-400 mb-1">Successful</p>
+                <p className="text-2xl font-bold text-green-400">{stats.successful}</p>
               </div>
-              <div>
-                <p className="text-gray-400">Failed</p>
-                <p className="text-2xl font-bold text-red-500">{stats.failed}</p>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <p className="text-xs text-gray-400 mb-1">Failed</p>
+                <p className="text-2xl font-bold text-red-400">{stats.failed}</p>
               </div>
-              <div>
-                <p className="text-gray-400">Total Lines</p>
-                <p className="text-2xl font-bold">{stats.totalLines.toLocaleString()}</p>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <p className="text-xs text-gray-400 mb-1">Total Lines</p>
+                <p className="text-2xl font-bold text-blue-400">{stats.totalLines.toLocaleString()}</p>
               </div>
-              <div>
-                <p className="text-gray-400">Total Nodes</p>
-                <p className="text-2xl font-bold">{stats.totalNodes.toLocaleString()}</p>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <p className="text-xs text-gray-400 mb-1">Total Nodes</p>
+                <p className="text-2xl font-bold text-purple-400">{stats.totalNodes.toLocaleString()}</p>
               </div>
             </div>
 
-            <div className="mt-4">
-              <p className="text-gray-400 mb-2">By Language</p>
+            <div>
+              <p className="text-sm text-gray-400 mb-3">Languages Detected</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(stats.byLanguage).map(([lang, count]) => (
-                  <span key={lang} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
-                    {lang}: {count as number}
-                  </span>
+                  <div
+                    key={lang}
+                    className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-lg text-sm font-medium"
+                  >
+                    {lang} <span className="text-blue-400/60">·</span> {count as number}
+                  </div>
                 ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* Node Types */}
-        <div className="bg-gray-900 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Node Types</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {Object.entries(nodesByType).map(([type, _]) => (
-              <div key={type} className="bg-gray-800 p-4 rounded-lg">
-                <p className="text-gray-400 text-sm">{type}</p>
-              </div>
-            ))}
+        {/* Node & Edge Types */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Node Types */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+            <h2 className="text-lg font-semibold mb-4">Node Types</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(nodesByType).map(([type, count]) => (
+                <div
+                  key={type}
+                  className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-400 capitalize">{type}</p>
+                    <p className="text-lg font-bold text-white">{count as number}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Edge Types */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+            <h2 className="text-lg font-semibold mb-4">Relationship Types</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(edgesByType).map(([type, count]) => (
+                <div
+                  key={type}
+                  className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-400">{type}</p>
+                    <p className="text-lg font-bold text-white">{count as number}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Edge Types */}
-        <div className="bg-gray-900 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Relationship Types</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {Object.entries(edgesByType).map(([type, _]) => (
-              <div key={type} className="bg-gray-800 p-4 rounded-lg">
-                <p className="text-gray-400 text-sm">{type}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* File Explorer */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-gray-900 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Files</h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+        {/* File Explorer & Details */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Files List */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-gray-700">
+              <h2 className="text-lg font-semibold">Project Files</h2>
+              <p className="text-xs text-gray-400 mt-1">{graph.files.length} files total</p>
+            </div>
+            <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
               {graph.files.map((file: any) => (
                 <button
                   key={file.id}
                   onClick={() => setSelectedFile(file.path || "")}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${selectedFile === file.path ? "bg-blue-600" : "bg-gray-800 hover:bg-gray-700"
-                    }`}
+                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
+                    selectedFile === file.path
+                      ? "bg-blue-600 shadow-lg shadow-blue-600/20"
+                      : "bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50"
+                  }`}
                 >
-                  <p className="font-mono text-sm truncate">{file.path}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {file.language} • {file.lines} lines
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileCode className="w-4 h-4 flex-shrink-0" />
+                    <p className="font-mono text-sm truncate flex-1">{file.path}</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-400 ml-6">
+                    <span className="px-2 py-0.5 bg-gray-900/50 rounded">{file.language}</span>
+                    <span>{file.lines} lines</span>
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="bg-gray-900 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">File Details</h2>
-            {selectedFile ? (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-400">File Path</p>
-                  <p className="font-mono text-sm">{selectedFile}</p>
-                </div>
-
-                {dependencies.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">Dependencies ({dependencies.length})</p>
-                    <div className="space-y-1">
-                      {dependencies.map((dep: any) => (
-                        <div key={dep.id} className="text-sm bg-gray-800 p-2 rounded">{dep.path}</div>
-                      ))}
-                    </div>
+          {/* File Details */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-gray-700">
+              <h2 className="text-lg font-semibold">File Details</h2>
+              <p className="text-xs text-gray-400 mt-1">
+                {selectedFile ? "Viewing file information" : "Select a file to view details"}
+              </p>
+            </div>
+            <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+              {selectedFile ? (
+                <>
+                  {/* File Path */}
+                  <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                    <p className="text-xs text-gray-400 mb-1">File Path</p>
+                    <p className="font-mono text-sm text-blue-400 break-all">{selectedFile}</p>
                   </div>
-                )}
 
-                {functions.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">Functions ({functions.length})</p>
-                    <div className="space-y-1">
-                      {functions.map((func: any) => (
-                        <button
-                          key={func.id}
-                          onClick={() => setSelectedFunction(func)}
-                          className={`w-full text-left p-2 rounded text-sm transition-colors ${selectedFunction?.id === func.id ? "bg-green-600" : "bg-gray-800 hover:bg-gray-700"
+                  {/* Dependencies */}
+                  {dependencies.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-300">Dependencies</p>
+                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs">
+                          {dependencies.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {dependencies.map((dep: any) => (
+                          <div
+                            key={dep.id}
+                            className="text-sm bg-gray-800/50 border border-gray-700/50 p-2.5 rounded-lg font-mono text-gray-300 hover:bg-gray-700/50 transition-colors"
+                          >
+                            {dep.path}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Functions */}
+                  {functions.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-300">Functions</p>
+                        <span className="px-2 py-0.5 bg-green-500/20 text-green-300 rounded text-xs">
+                          {functions.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {functions.map((func: any) => (
+                          <button
+                            key={func.id}
+                            onClick={() => setSelectedFunction(func)}
+                            className={`w-full text-left p-2.5 rounded-lg text-sm transition-all duration-200 ${
+                              selectedFunction?.id === func.id
+                                ? "bg-green-600 shadow-lg shadow-green-600/20"
+                                : "bg-gray-800/50 border border-gray-700/50 hover:bg-gray-700/50"
                             }`}
-                        >
-                          <span className="font-mono">{func.name}</span>
-                          {func.params && func.params.length > 0 && (
-                            <span className="text-gray-400">({func.params.join(", ")})</span>
-                          )}
-                          <span className="text-xs text-gray-500 ml-2">L{func.startLine}-{func.endLine}</span>
-                        </button>
-                      ))}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-medium">{func.name}</span>
+                              <span className="text-xs text-gray-400">L{func.startLine}-{func.endLine}</span>
+                            </div>
+                            {func.params && func.params.length > 0 && (
+                              <div className="text-xs text-gray-400 mt-1 font-mono">
+                                ({func.params.join(", ")})
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {selectedFunction && functionCalls.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">
-                      Calls from {selectedFunction.name} ({functionCalls.length})
-                    </p>
-                    <div className="space-y-1">
-                      {functionCalls.map((call: any, idx: number) => (
-                        <div key={idx} className="text-sm bg-gray-800 p-2 rounded">→ {call.name}</div>
-                      ))}
+                  {/* Function Calls */}
+                  {selectedFunction && functionCalls.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-300">
+                          Calls from {selectedFunction.name}
+                        </p>
+                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
+                          {functionCalls.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {functionCalls.map((call: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="text-sm bg-gray-800/50 border border-gray-700/50 p-2.5 rounded-lg flex items-center gap-2"
+                          >
+                            <span className="text-purple-400">→</span>
+                            <span className="font-mono">{call.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full min-h-[300px]">
+                  <div className="text-center space-y-2">
+                    <FileCode className="w-12 h-12 text-gray-700 mx-auto" />
+                    <p className="text-gray-500 text-sm">Select a file to view details</p>
                   </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500">Select a file to view details</p>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Export Options */}
-        <div className="bg-gray-900 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Export</h2>
-          <div className="flex gap-4">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+          <h2 className="text-lg font-semibold mb-4">Export Options</h2>
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => {
                 const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
@@ -291,9 +428,11 @@ function StatisticsView({
                 a.href = url;
                 a.download = "code-graph.json";
                 a.click();
+                URL.revokeObjectURL(url);
               }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 shadow-lg shadow-blue-600/20 text-sm font-medium"
             >
+              <Download className="w-4 h-4" />
               Export Graph JSON
             </button>
 
@@ -306,9 +445,11 @@ function StatisticsView({
                 a.href = url;
                 a.download = "code-graph.dot";
                 a.click();
+                URL.revokeObjectURL(url);
               }}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg transition-all duration-200 shadow-lg shadow-green-600/20 text-sm font-medium"
             >
+              <Download className="w-4 h-4" />
               Export DOT Format
             </button>
           </div>
@@ -318,16 +459,39 @@ function StatisticsView({
   );
 }
 
-function StatCard({ title, value, icon }: { title: string; value: number; icon: string }) {
+// Metric Card Component
+function MetricCard({
+  title,
+  value,
+  icon,
+  color
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color: 'blue' | 'purple' | 'green' | 'orange';
+}) {
+  const colorClasses = {
+    blue: 'from-blue-500/10 to-blue-600/10 border-blue-500/20 text-blue-400',
+    purple: 'from-purple-500/10 to-purple-600/10 border-purple-500/20 text-purple-400',
+    green: 'from-green-500/10 to-green-600/10 border-green-500/20 text-green-400',
+    orange: 'from-orange-500/10 to-orange-600/10 border-orange-500/20 text-orange-400'
+  };
+
+  const textColors = {
+    blue: 'text-blue-400',
+    purple: 'text-purple-400',
+    green: 'text-green-400',
+    orange: 'text-orange-400'
+  };
+
   return (
-    <div className="bg-gray-900 rounded-lg p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-sm">{title}</p>
-          <p className="text-3xl font-bold mt-1">{value.toLocaleString()}</p>
-        </div>
-        <div className="text-4xl">{icon}</div>
+    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl p-6 border shadow-xl`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className={`${textColors[color]}`}>{icon}</div>
+        <p className="text-3xl font-bold text-white">{value.toLocaleString()}</p>
       </div>
+      <p className="text-sm text-gray-400 font-medium">{title}</p>
     </div>
   );
 }

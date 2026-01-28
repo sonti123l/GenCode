@@ -668,64 +668,6 @@ export default function GraphVisualizer({ data: graphData }: GraphVisualizerProp
     setOffset({ x: 0, y: 0 });
   };
 
-  const exportAsSVG = useCallback(() => {
-    const svgNS = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(svgNS, "svg");
-    svg.setAttribute("width", "1600");
-    svg.setAttribute("height", "1200");
-    svg.setAttribute("viewBox", "0 0 1600 1200");
-    svg.setAttribute("style", "background: #1F2937");
-
-    graphData.edges?.forEach(edge => {
-      const fromPos = nodePositions[edge.from];
-      const toPos = nodePositions[edge.to];
-      if (fromPos && toPos) {
-        const line = document.createElementNS(svgNS, "line");
-        line.setAttribute("x1", fromPos.x.toString());
-        line.setAttribute("y1", fromPos.y.toString());
-        line.setAttribute("x2", toPos.x.toString());
-        line.setAttribute("y2", toPos.y.toString());
-        line.setAttribute("stroke", EDGE_COLORS[edge.type] || '#6B7280');
-        line.setAttribute("stroke-width", edge.unresolved ? "1.5" : "2.5");
-        if (edge.unresolved) line.setAttribute("stroke-dasharray", "8,4");
-        svg.appendChild(line);
-      }
-    });
-
-    graphData.nodes?.forEach(node => {
-      const pos = nodePositions[node.id];
-      if (pos) {
-        const circle = document.createElementNS(svgNS, "circle");
-        circle.setAttribute("cx", pos.x.toString());
-        circle.setAttribute("cy", pos.y.toString());
-        circle.setAttribute("r", "22");
-        circle.setAttribute("fill", NODE_COLORS[node.type] || '#6B7280');
-        circle.setAttribute("stroke", "#FFFFFF");
-        circle.setAttribute("stroke-width", "2");
-        svg.appendChild(circle);
-
-        const text = document.createElementNS(svgNS, "text");
-        text.setAttribute("x", pos.x.toString());
-        text.setAttribute("y", (pos.y + 38).toString());
-        text.setAttribute("fill", "white");
-        text.setAttribute("text-anchor", "middle");
-        text.setAttribute("font-size", "13");
-        text.textContent = node.name || node.path?.split(/[/\\]/).pop() || `${node.id}`;
-        svg.appendChild(text);
-      }
-    });
-
-    const serializer = new XMLSerializer();
-    const svgStr = serializer.serializeToString(svg);
-    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'code-graph.svg';
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [graphData, nodePositions]);
-
   // Get connection statistics for selected node
   const getConnectionStats = useCallback(() => {
     if (!selectedNode) return null;
@@ -809,10 +751,7 @@ export default function GraphVisualizer({ data: graphData }: GraphVisualizerProp
             <button onClick={resetView} className="p-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors">
               <Maximize2 className="w-5 h-5" />
             </button>
-            <button onClick={exportAsSVG} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded flex items-center gap-2 transition-colors">
-              <Download className="w-4 h-4" />
-              Export SVG
-            </button>
+           
           </div>
         </div>
       </div>

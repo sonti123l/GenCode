@@ -27,6 +27,7 @@ import {
   AlertCircle,
   Database,
   PlayCircle,
+  CheckCircle,
 } from "lucide-react";
 import {
   CodeBlock,
@@ -54,12 +55,21 @@ interface CodeGraph {
     path?: string;
     language?: string;
     lines?: number;
+    [key: string]: any; // Allow additional properties
   }>;
   edges: Array<{
     from: string;
     to: string;
     type: string;
     unresolved?: boolean;
+    [key: string]: any; // Allow additional properties like edgeType
+  }>;
+  files?: Array<{
+    id: number;
+    type: string;
+    path: string;
+    language: string;
+    lines: number;
   }>;
 }
 
@@ -69,7 +79,6 @@ interface CypherQueryResult {
   error?: string;
   summary: string;
 }
-
 
 interface Neo4jConfig {
   uri: string;
@@ -97,7 +106,6 @@ function extractCodeBlocks(content: string): CodeBlock[] {
 
   return blocks;
 }
-
 
 function formatMessageContent(content: string): string {
   return content
@@ -207,7 +215,7 @@ function MessageBubble({
   message,
   onApplyCode,
   onCopyCode,
-  onExecuteQuery
+  onExecuteQuery,
 }: {
   message: Message;
   onApplyCode: (block: CodeBlock) => void;
@@ -234,8 +242,9 @@ function MessageBubble({
       className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}
     >
       <div
-        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser ? "bg-blue-600" : "bg-purple-600"
-          }`}
+        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+          isUser ? "bg-blue-600" : "bg-purple-600"
+        }`}
       >
         {isUser ? (
           <User className="w-4 h-4 text-white" />
@@ -247,10 +256,11 @@ function MessageBubble({
         className={`flex-1 max-w-[85%] ${isUser ? "flex flex-col items-end" : ""}`}
       >
         <div
-          className={`rounded-lg px-4 py-3 ${isUser
-            ? "bg-blue-600 text-white"
-            : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
-            }`}
+          className={`rounded-lg px-4 py-3 ${
+            isUser
+              ? "bg-blue-600 text-white"
+              : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
+          }`}
         >
           {textContent && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -459,10 +469,11 @@ function QuickActions({
           key={action.label}
           onClick={() => onAction(action.prompt)}
           disabled={!hasContext}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${hasContext
-            ? "bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-300"
-            : "bg-[#2c2c2c] text-gray-600 cursor-not-allowed"
-            }`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${
+            hasContext
+              ? "bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-300"
+              : "bg-[#2c2c2c] text-gray-600 cursor-not-allowed"
+          }`}
         >
           <action.icon className="w-3 h-3" />
           {action.label}
@@ -515,8 +526,9 @@ function ConversationList({
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              className={`flex items-center justify-between px-3 py-2 hover:bg-white/10 cursor-pointer ${currentId === conv.id ? "bg-white/10" : ""
-                }`}
+              className={`flex items-center justify-between px-3 py-2 hover:bg-white/10 cursor-pointer ${
+                currentId === conv.id ? "bg-white/10" : ""
+              }`}
               onClick={() => {
                 onSelect(conv.id);
                 setShowList(false);
@@ -547,10 +559,12 @@ function ConversationList({
 
 function Neo4jConnectionPanel({
   isConnected,
+  graphStored,
   onConnect,
   onDisconnect,
 }: {
   isConnected: boolean;
+  graphStored: boolean;
   onConnect: (config: Neo4jConfig) => void;
   onDisconnect: () => void;
 }) {
@@ -568,12 +582,19 @@ function Neo4jConnectionPanel({
           <Database className="w-4 h-4 text-green-400" />
           <span className="text-sm text-gray-300">Neo4j Graph Database</span>
           <span
-            className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
-              }`}
+            className={`w-2 h-2 rounded-full ${
+              isConnected ? "bg-green-500" : "bg-red-500"
+            }`}
           />
           <span className="text-xs text-gray-500">
             {isConnected ? "Connected" : "Disconnected"}
           </span>
+          {isConnected && graphStored && (
+            <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-green-500/20 text-green-300 rounded">
+              <CheckCircle className="w-3 h-3" />
+              Graph Stored
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           {!isConnected ? (
@@ -634,7 +655,6 @@ function Neo4jConnectionPanel({
   );
 }
 
-
 function QueryResultPanel({
   result,
   onClose,
@@ -679,7 +699,6 @@ function QueryResultPanel({
   );
 }
 
-
 export default function ChatInterface() {
   const { selectedFile, fileContent, setFileContent } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -698,6 +717,7 @@ export default function ChatInterface() {
     string | null
   >(null);
   const [neo4jConnected, setNeo4jConnected] = useState(false);
+  const [graphStored, setGraphStored] = useState(false);
   const [graphContext, setGraphContext] = useState<GraphContext | null>(null);
   const [queryResult, setQueryResult] = useState<CypherQueryResult | null>(
     null
@@ -706,6 +726,7 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Check Neo4j connection status
   useEffect(() => {
     const checkNeo4j = async () => {
       try {
@@ -720,36 +741,98 @@ export default function ChatInterface() {
     return () => clearInterval(interval);
   }, []);
 
+  // Automatically store graph in Neo4j when connected
   useEffect(() => {
-    const loadGraphContext = async () => {
+    const storeGraphAutomatically = async () => {
+      if (!neo4jConnected) {
+        setGraphStored(false);
+        return;
+      }
+
       try {
         const savedGraph = localStorage.getItem("codeGraph");
-        if (savedGraph) {
-          const graph: CodeGraph = JSON.parse(savedGraph);
-          const context = await invoke<GraphContext>("generate_graph_context", {
-            graph,
-          });
-          setGraphContext(context);
-
-          // Auto-store in Neo4j if connected
-          if (neo4jConnected) {
-            try {
-              const result = await invoke<string>("store_graph_in_neo4j", {
-                graph,
-              });
-              console.log("Graph stored in Neo4j:", result);
-            } catch (error) {
-              console.error("Failed to store in Neo4j:", error);
-            }
-          }
+        if (!savedGraph) {
+          setGraphStored(false);
+          return;
         }
+
+        const rawGraph = JSON.parse(savedGraph);
+        
+        // Convert the raw graph to the expected format
+        // The localStorage has numeric IDs, we need to convert them to strings
+        const graph: CodeGraph = {
+          nodes: rawGraph.nodes.map((node: any) => ({
+            id: String(node.id),
+            type: node.type,
+            name: node.name,
+            path: node.path,
+            language: node.language,
+            lines: node.lines,
+            // Include any other properties
+            ...(node.startLine !== undefined && { startLine: node.startLine }),
+            ...(node.endLine !== undefined && { endLine: node.endLine }),
+            ...(node.params && { params: node.params }),
+            ...(node.source && { source: node.source }),
+            ...(node.specifiers && { specifiers: node.specifiers }),
+            ...(node.line !== undefined && { line: node.line }),
+          })),
+          edges: rawGraph.edges.map((edge: any) => ({
+            from: String(edge.from),
+            to: String(edge.to),
+            type: edge.type,
+            ...(edge.unresolved !== undefined && { unresolved: edge.unresolved }),
+            ...(edge.edgeType && { edgeType: edge.edgeType }),
+          })),
+          ...(rawGraph.files && { files: rawGraph.files }),
+        };
+        
+        console.log("📊 Converting graph:", {
+          originalNodes: rawGraph.nodes.length,
+          originalEdges: rawGraph.edges.length,
+          convertedNodes: graph.nodes.length,
+          convertedEdges: graph.edges.length,
+        });
+        
+        // Generate context first
+        const context = await invoke<GraphContext>("generate_graph_context", {
+          graph,
+        });
+        setGraphContext(context);
+
+        // Store in Neo4j
+        const result = await invoke<string>("store_graph_in_neo4j", {
+          graph,
+        });
+        
+        console.log("✅ Graph automatically stored in Neo4j:", result);
+        setGraphStored(true);
+
+        // Add success message to chat
+        const successMsg: Message = {
+          id: Date.now().toString(),
+          role: "system",
+          content: `✅ Code graph automatically loaded into Neo4j!\n\n${context.summary}\n\nYou can now query the graph using Cypher. Try asking: "Show me all files" or "Find function call chains"`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, successMsg]);
       } catch (error) {
-        console.error("Failed to load graph context:", error);
+        console.error("Failed to auto-store graph:", error);
+        setGraphStored(false);
+        
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          role: "system",
+          content: `⚠️ Failed to store graph in Neo4j: ${error}\n\nPlease check the console for details.`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
       }
     };
-    loadGraphContext();
+
+    storeGraphAutomatically();
   }, [neo4jConnected]);
 
+  // Check Ollama connection
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -765,6 +848,7 @@ export default function ChatInterface() {
     return () => clearInterval(interval);
   }, []);
 
+  // Listen for chat streaming
   useEffect(() => {
     const unlisten = listen<ChatStreamEvent>("chat-stream", (event) => {
       const { content, done } = event.payload;
@@ -779,7 +863,7 @@ export default function ChatInterface() {
           return prev.map((m, i) =>
             i === prev.length - 1
               ? { ...m, content: m.content + content, isStreaming: !done }
-              : m,
+              : m
           );
         }
         return prev;
@@ -849,22 +933,7 @@ export default function ChatInterface() {
       };
       setMessages((prev) => [...prev, successMsg]);
 
-      // Store graph if available
-      const savedGraph = localStorage.getItem("codeGraph");
-      if (savedGraph) {
-        const graph: CodeGraph = JSON.parse(savedGraph);
-        const storeResult = await invoke<string>("store_graph_in_neo4j", {
-          graph,
-        });
-
-        const storeMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "system",
-          content: storeResult,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, storeMsg]);
-      }
+      // Graph will be stored automatically by the effect above
     } catch (error) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -880,6 +949,7 @@ export default function ChatInterface() {
     try {
       const result = await invoke<string>("disconnect_neo4j");
       setNeo4jConnected(false);
+      setGraphStored(false);
 
       const msg: Message = {
         id: Date.now().toString(),
@@ -894,6 +964,17 @@ export default function ChatInterface() {
   };
 
   const handleExecuteQuery = async (query: string) => {
+    if (!neo4jConnected) {
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: "system",
+        content: "⚠️ Neo4j is not connected. Please connect first.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      return;
+    }
+
     try {
       const result = await invoke<CypherQueryResult>("execute_cypher_query", {
         cypher: query,
@@ -901,7 +982,6 @@ export default function ChatInterface() {
 
       setQueryResult(result);
 
-      // Add result to chat
       const resultMsg: Message = {
         id: Date.now().toString(),
         role: "system",
@@ -910,12 +990,11 @@ export default function ChatInterface() {
       };
       setMessages((prev) => [...prev, resultMsg]);
 
-      // If AI generated the query, add the results as context for next query
       if (result.data.length > 0) {
         const contextMsg: Message = {
           id: (Date.now() + 1).toString(),
           role: "system",
-          content: `Query results added to context:\n\`\`\`json\n${JSON.stringify(result.data.slice(0, 5), null, 2)}\n\`\`\`${result.data.length > 5 ? `\n... and ${result.data.length - 5} more results` : ""}`,
+          content: `Query results:\n\`\`\`json\n${JSON.stringify(result.data.slice(0, 5), null, 2)}\n\`\`\`${result.data.length > 5 ? `\n... and ${result.data.length - 5} more results` : ""}`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, contextMsg]);
@@ -930,7 +1009,6 @@ export default function ChatInterface() {
       setMessages((prev) => [...prev, errorMsg]);
     }
   };
-
 
   const buildSystemPrompt = useCallback(async () => {
     let systemPrompt = `You are an expert AI coding assistant with access to a Neo4j graph database containing the complete code structure.
@@ -951,15 +1029,43 @@ Guidelines:
 
 Database Status:
 - Neo4j: ${neo4jConnected ? "✓ Connected and ready" : "✗ Not connected"}
-${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- The code graph is stored and queryable" : "- Connect to Neo4j to enable graph queries"}
+- Graph Data: ${graphStored ? "✓ Loaded and queryable" : "✗ Not loaded"}
+${neo4jConnected && graphStored ? "- You can generate and execute Cypher queries directly\n- The code graph is stored and queryable" : "- Connect to Neo4j to enable graph queries"}
 
 `;
 
-    if (neo4jConnected && graphContext) {
+    if (neo4jConnected && graphStored && graphContext) {
       try {
         const savedGraph = localStorage.getItem("codeGraph");
         if (savedGraph) {
-          const graph: CodeGraph = JSON.parse(savedGraph);
+          const rawGraph = JSON.parse(savedGraph);
+          
+          // Convert the raw graph to the expected format
+          const graph: CodeGraph = {
+            nodes: rawGraph.nodes.map((node: any) => ({
+              id: String(node.id),
+              type: node.type,
+              name: node.name,
+              path: node.path,
+              language: node.language,
+              lines: node.lines,
+              ...(node.startLine !== undefined && { startLine: node.startLine }),
+              ...(node.endLine !== undefined && { endLine: node.endLine }),
+              ...(node.params && { params: node.params }),
+              ...(node.source && { source: node.source }),
+              ...(node.specifiers && { specifiers: node.specifiers }),
+              ...(node.line !== undefined && { line: node.line }),
+            })),
+            edges: rawGraph.edges.map((edge: any) => ({
+              from: String(edge.from),
+              to: String(edge.to),
+              type: edge.type,
+              ...(edge.unresolved !== undefined && { unresolved: edge.unresolved }),
+              ...(edge.edgeType && { edgeType: edge.edgeType }),
+            })),
+            ...(rawGraph.files && { files: rawGraph.files }),
+          };
+          
           const queryContext = await invoke<string>("graph_to_query_context", {
             graph,
           });
@@ -978,8 +1084,7 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
     }
 
     return systemPrompt;
-  }, [contextFiles, graphContext, neo4jConnected]);
-
+  }, [contextFiles, graphContext, neo4jConnected, graphStored]);
 
   const sendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || isLoading) return;
@@ -999,7 +1104,8 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
+        content:
+          "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
         timestamp: new Date(),
         isStreaming: false,
       };
@@ -1042,10 +1148,10 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
         prev.map((m) =>
           m.id === assistantMsg.id
             ? {
-              ...m,
-              content: `**Error**: ${error}`,
-              isStreaming: false,
-            }
+                ...m,
+                content: `**Error**: ${error}`,
+                isStreaming: false,
+              }
             : m
         )
       );
@@ -1158,12 +1264,13 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
             <Sparkles className="w-5 h-5 text-purple-400" />
             <span className="font-medium text-white">AI Assistant</span>
             <span
-              className={`w-2 h-2 rounded-full ${connectionStatus === "connected"
-                ? "bg-green-500"
-                : connectionStatus === "checking"
-                  ? "bg-yellow-500 animate-pulse"
-                  : "bg-red-500"
-                }`}
+              className={`w-2 h-2 rounded-full ${
+                connectionStatus === "connected"
+                  ? "bg-green-500"
+                  : connectionStatus === "checking"
+                    ? "bg-yellow-500 animate-pulse"
+                    : "bg-red-500"
+              }`}
               title={
                 connectionStatus === "connected"
                   ? "Connected to Ollama"
@@ -1201,6 +1308,7 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
 
       <Neo4jConnectionPanel
         isConnected={neo4jConnected}
+        graphStored={graphStored}
         onConnect={handleConnectNeo4j}
         onDisconnect={handleDisconnectNeo4j}
       />
@@ -1225,16 +1333,16 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
         hasContext={contextFiles.length > 0}
       />
 
-      <ScrollArea className="flex-1 p-4 h-100">
+      <ScrollArea className="flex-1 p-4 h-100 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
             <Bot className="w-12 h-12 mb-4 text-purple-400/50" />
             <h3 className="text-lg font-medium text-gray-300 mb-2">
-              AI Coding Assistant
+              AI Coding Assistant with Neo4j
             </h3>
             <p className="text-sm max-w-md mb-4">
               Ask me anything about your code. I can explain, refactor, debug,
-              write tests, and more. Open a file to add it to the context.
+              write tests, and query the code graph database.
             </p>
             {connectionStatus === "disconnected" && (
               <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm max-w-md">
@@ -1245,28 +1353,18 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
                     ollama serve
                   </code>
                 </p>
-                <p className="text-xs mt-1">
-                  Then pull a model:{" "}
-                  <code className="bg-red-500/20 px-1 rounded">
-                    ollama pull codellama:7b
-                  </code>
-                </p>
               </div>
             )}
 
-            {neo4jConnected && (
-              <span className="flex items-center gap-1 text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded">
-                <Database className="w-3 h-3" />
-                Graph DB Active
-              </span>
-            )}
-
-            {connectionStatus === "connected" && contextFiles.length === 0 && (
-              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-400 text-sm max-w-md">
-                <p className="font-medium">💡 Tip</p>
+            {neo4jConnected && graphStored && (
+              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm max-w-md">
+                <p className="font-medium flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Graph Database Ready
+                </p>
                 <p className="text-xs mt-1">
-                  Open a file from the file explorer to add it to the context.
-                  The AI will be able to see and understand your code.
+                  Your code is indexed in Neo4j. Try: "Show me all files" or
+                  "Find function dependencies"
                 </p>
               </div>
             )}
@@ -1282,12 +1380,11 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
                 onExecuteQuery={handleExecuteQuery}
               />
             ))}
-            {/* <div ref={messagesEndRef} /> */}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
 
-      {/* Input Area */}
       <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 mb-10">
         <SettingsPanel
           model={model}
@@ -1303,11 +1400,11 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder={
-                neo4jConnected || connectionStatus === "disconnected"
-                  ? "Type your message... (Ollama not connected)"
-                  : contextFiles.length > 0
-                    ? "Ask about the code..."
-                    : "Ask a question or open a file for context..."
+                connectionStatus === "disconnected"
+                  ? "Ollama not connected..."
+                  : neo4jConnected && graphStored
+                    ? "Ask about your code or query the graph..."
+                    : "Ask a question..."
               }
               className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"
               rows={2}
@@ -1328,7 +1425,12 @@ ${neo4jConnected ? "- You can generate and execute Cypher queries directly\n- Th
         </div>
         <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
           <span>Press Enter to send, Shift+Enter for new line</span>
-          <span>{contextFiles.length} files in context</span>
+          <div className="flex items-center gap-2">
+            <span>{contextFiles.length} files in context</span>
+            {neo4jConnected && graphStored && (
+              <span className="text-green-400">• Graph ready</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

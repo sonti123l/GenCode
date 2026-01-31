@@ -460,7 +460,6 @@ pub struct ParserState {
 
 impl ParserState {
     pub fn new() -> Self {
-        eprintln!("🚀 Initializing ParserState...");
         
         let mut state = ParserState {
             parsers: Mutex::new(HashMap::new()),
@@ -470,7 +469,6 @@ impl ParserState {
         state.setup_extensions();
         state.initialize_parsers();
         
-        eprintln!("✅ ParserState initialized!");
         state
     }
 

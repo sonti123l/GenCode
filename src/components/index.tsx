@@ -59,32 +59,6 @@ export default function FolderSelectorPage({
 
     const codeGraph = buildCodeGraphFromFiles(parsedData);
 
-    console.log("📈 Code Graph Statistics:");
-    console.log(`  - Total nodes: ${codeGraph.nodes.length}`);
-    console.log(`  - Total edges: ${codeGraph.edges.length}`);
-    console.log(`  - Files: ${codeGraph.files.length}`);
-
-    // Group nodes by type
-    const nodesByType = codeGraph.nodes.reduce(
-      (acc, node) => {
-        acc[node.type] = (acc[node.type] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-    console.log("  - Node types:", nodesByType);
-
-    // Group edges by type
-    const edgesByType = codeGraph.edges.reduce(
-      (acc, edge) => {
-        acc[edge.type] = (acc[edge.type] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    console.log("  - Edge types:", edgesByType);
-
     localStorage.setItem("codeGraph", JSON.stringify(codeGraph));
     localStorage.setItem("parseStats", JSON.stringify(stats));
 

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Network, ZoomIn, ZoomOut, Maximize2, Download, Grid, Layers } from 'lucide-react';
+import { Network, ZoomIn, ZoomOut, Maximize2, Grid, Layers } from 'lucide-react';
 
 interface GraphNode {
   id: number | string;

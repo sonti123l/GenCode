@@ -778,13 +778,6 @@ export default function ChatInterface() {
           ...(rawGraph.files && { files: rawGraph.files }),
         };
 
-        console.log("📊 Converting graph:", {
-          originalNodes: rawGraph.nodes.length,
-          originalEdges: rawGraph.edges.length,
-          convertedNodes: graph.nodes.length,
-          convertedEdges: graph.edges.length,
-        });
-
         const context = await invoke<GraphContext>("generate_graph_context", {
           graph,
         });
@@ -794,13 +787,12 @@ export default function ChatInterface() {
           graph,
         });
 
-        console.log("✅ Graph automatically stored in Neo4j:", result);
         setGraphStored(true);
 
         const successMsg: Message = {
           id: Date.now().toString(),
           role: "system",
-          content: `✅ Code graph automatically loaded into Neo4j!\n\n${context.summary}\n\nYou can now query the graph using Cypher. Try asking: "Show me all files" or "Find function call chains"`,
+          content: `Code graph automatically loaded into Neo4j!\n\n${context.summary}\n\nYou can now query the graph using Cypher. Try asking: "Show me all files" or "Find function call chains"`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, successMsg]);

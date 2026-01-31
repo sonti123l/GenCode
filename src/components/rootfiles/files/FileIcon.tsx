@@ -1,11 +1,5 @@
 // components/FileIcon.tsx
-import {
-  VscFile,
-  VscFolder,
-  VscFolderOpened,
-  VscJson,
-  VscMarkdown,
-} from "react-icons/vsc";
+import { VscFile, VscFolder, VscFolderOpened, VscJson } from "react-icons/vsc";
 import {
   SiJavascript,
   SiTypescript,
@@ -32,12 +26,10 @@ import {
   SiClojure,
   SiErlang,
   SiVuedotjs,
-  SiAngular,
   SiSvelte,
   SiSass,
   SiLess,
   SiTailwindcss,
-  SiBootstrap,
   SiWebpack,
   SiVite,
   SiDocker,
@@ -50,11 +42,7 @@ import {
   SiMarkdown,
   SiGraphql,
   SiPostgresql,
-  SiMongodb,
-  SiRedis,
   SiSqlite,
-  SiShell,
-  SiGnubash,
 } from "react-icons/si";
 import {
   FaFileImage,

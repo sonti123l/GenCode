@@ -136,12 +136,12 @@ function CodeBlockDisplay({
   const isCypher = block.language === "cypher";
 
   return (
-    <div className="my-2 rounded-lg border border-[#3c3c3c] bg-[#1e1e1e] overflow-hidden flex-shrink-0">
+    <div className="my-2 rounded-lg border border-[#3c3c3c] bg-[#1e1e1e] overflow-hidden shrink-0">
       <div className="flex items-center justify-between px-3 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c]">
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1 hover:bg-white/10 rounded flex-shrink-0"
+            className="p-1 hover:bg-white/10 rounded shrink-0"
           >
             {expanded ? (
               <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -150,25 +150,25 @@ function CodeBlockDisplay({
             )}
           </button>
           {isCypher ? (
-            <Database className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <Database className="w-4 h-4 text-green-400 shrink-0" />
           ) : (
-            <FileCode className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <FileCode className="w-4 h-4 text-blue-400 shrink-0" />
           )}
           <span className="text-sm text-gray-300 truncate">
             {block.fileName || block.language}
           </span>
           {block.fileName && (
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 flex-shrink-0">
+            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 shrink-0">
               {block.action === "create" ? "NEW" : "EDIT"}
             </span>
           )}
           {isCypher && (
-            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 flex-shrink-0">
+            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 shrink-0">
               CYPHER
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={handleCopy}
             className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
@@ -229,8 +229,8 @@ function MessageBubble({
 
   if (isSystem) {
     return (
-      <div className="flex justify-center mb-4 flex-shrink-0">
-        <div className="px-4 py-2 bg-[#2d2d2d] rounded-full text-sm text-gray-400 border border-[#3c3c3c] max-w-[90%] break-words">
+      <div className="flex justify-center mb-4 shrink-0">
+        <div className="px-4 py-2 bg-[#2d2d2d] rounded-full text-sm text-gray-400 border border-[#3c3c3c] max-w-[90%] wrap-break-word">
           {message.content}
         </div>
       </div>
@@ -239,7 +239,7 @@ function MessageBubble({
 
   return (
     <div
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 flex-shrink-0`}
+      className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 shrink-0`}
     >
       <div
         className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser ? "bg-blue-600" : "bg-purple-600"
@@ -255,7 +255,7 @@ function MessageBubble({
         className={`flex-1 min-w-0 ${isUser ? "flex flex-col items-end" : ""}`}
       >
         <div
-          className={`rounded-lg px-4 py-3 break-words ${isUser
+          className={`rounded-lg px-4 py-3 wrap-break-word ${isUser
             ? "bg-blue-600 text-white"
             : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
             }`}
@@ -282,7 +282,7 @@ function MessageBubble({
             ))}
           </div>
         )}
-        <span className="text-xs text-gray-500 mt-1 flex-shrink-0">
+        <span className="text-xs text-gray-500 mt-1 shrink-0">
           {message.timestamp.toLocaleTimeString()}
         </span>
       </div>
@@ -304,7 +304,7 @@ function ContextPanel({
   if (files.length === 0) return null;
 
   return (
-    <div className="border-b border-[#3c3c3c] bg-[#252526] flex-shrink-0">
+    <div className="border-b border-[#3c3c3c] bg-[#252526] shrink-0">
       <div
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5"
         onClick={() => setExpanded(!expanded)}
@@ -337,13 +337,13 @@ function ContextPanel({
               key={file.path}
               className="flex items-center gap-1 px-2 py-1 bg-[#3c3c3c] rounded text-xs text-gray-300 max-w-full"
             >
-              <FileCode className="w-3 h-3 flex-shrink-0" />
+              <FileCode className="w-3 h-3 shrink-0" />
               <span className="truncate">
                 {file.path.split(/[\\/]/).pop()}
               </span>
               <button
                 onClick={() => onRemove(file.path)}
-                className="ml-1 hover:text-red-400 flex-shrink-0"
+                className="ml-1 hover:text-red-400 shrink-0"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -461,13 +461,13 @@ function QuickActions({
   ];
 
   return (
-    <div className="flex gap-2 px-3 py-2 border-b border-[#3c3c3c] overflow-x-auto flex-shrink-0">
+    <div className="flex gap-2 px-3 py-2 border-b border-[#3c3c3c] overflow-x-auto shrink-0">
       {actions.map((action) => (
         <button
           key={action.label}
           onClick={() => onAction(action.prompt)}
           disabled={!hasContext}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 ${hasContext
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors shrink-0 ${hasContext
             ? "bg-[#3c3c3c] hover:bg-[#4c4c4c] text-gray-300"
             : "bg-[#2c2c2c] text-gray-600 cursor-not-allowed"
             }`}
@@ -541,7 +541,7 @@ function ConversationList({
                   e.stopPropagation();
                   onDelete(conv.id);
                 }}
-                className="p-1 hover:bg-red-500/20 rounded text-gray-500 hover:text-red-400 flex-shrink-0"
+                className="p-1 hover:bg-red-500/20 rounded text-gray-500 hover:text-red-400 shrink-0"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
@@ -572,26 +572,26 @@ function Neo4jConnectionPanel({
   });
 
   return (
-    <div className="border-b border-[#3c3c3c] bg-[#252526] p-3 flex-shrink-0">
+    <div className="border-b border-[#3c3c3c] bg-[#252526] p-3 shrink-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <Database className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <Database className="w-4 h-4 text-green-400 shrink-0" />
           <span className="text-sm text-gray-300 truncate">Neo4j Graph Database</span>
           <span
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-green-500" : "bg-red-500"
+            className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? "bg-green-500" : "bg-red-500"
               }`}
           />
-          <span className="text-xs text-gray-500 flex-shrink-0">
+          <span className="text-xs text-gray-500 shrink-0">
             {isConnected ? "Connected" : "Disconnected"}
           </span>
           {isConnected && graphStored && (
-            <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-green-500/20 text-green-300 rounded flex-shrink-0">
+            <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-green-500/20 text-green-300 rounded shrink-0">
               <CheckCircle className="w-3 h-3" />
               Graph Stored
             </span>
           )}
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 shrink-0">
           {!isConnected ? (
             <button
               onClick={() => setShowConfig(!showConfig)}
@@ -660,7 +660,7 @@ function QueryResultPanel({
   if (!result) return null;
 
   return (
-    <div className="border-b border-[#3c3c3c] bg-[#1e1e1e] p-4 flex-shrink-0 max-h-60 overflow-y-auto">
+    <div className="border-b border-[#3c3c3c] bg-[#1e1e1e] p-4 shrink-0 max-h-60 overflow-y-auto">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {result.success ? (
@@ -782,10 +782,6 @@ export default function ChatInterface() {
           graph,
         });
         setGraphContext(context);
-
-        const result = await invoke<string>("store_graph_in_neo4j", {
-          graph,
-        });
 
         setGraphStored(true);
 
@@ -1238,7 +1234,7 @@ ${neo4jConnected && graphStored ? "- You can generate and execute Cypher queries
   return (
     <div className="h-full max-h-full flex flex-col bg-[#1e1e1e] overflow-hidden isolate">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#252526] flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#252526] shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-purple-400" />
@@ -1300,7 +1296,7 @@ ${neo4jConnected && graphStored ? "- You can generate and execute Cypher queries
       />
 
       {/* Model Info */}
-      <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 flex-shrink-0">
+      <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0">
         Model: {model}
       </div>
 
@@ -1322,7 +1318,7 @@ ${neo4jConnected && graphStored ? "- You can generate and execute Cypher queries
         <ScrollArea className="h-full w-full">
           <div className="p-4 min-h-full">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 min-h-[400px]">
+              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 min-h-100">
                 <Bot className="w-12 h-12 mb-4 text-purple-400/50" />
                 <h3 className="text-lg font-medium text-gray-300 mb-2">
                   AI Coding Assistant with Neo4j
@@ -1374,7 +1370,7 @@ ${neo4jConnected && graphStored ? "- You can generate and execute Cypher queries
       </div>
 
       {/* Input Area */}
-      <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 flex-shrink-0">
+      <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 shrink-0">
         <SettingsPanel
           model={model}
           setModel={setModel}

@@ -74,11 +74,7 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
   });
 
   function processAST(ast: ASTNode, fileNodeId: number, filePath: string) {
-    function traverse(
-      node: ASTNode,
-      parentNodeId = fileNodeId,
-      scope: ASTNode[] = [],
-    ) {
+    function traverse(node: ASTNode, scope: ASTNode[] = []) {
       if (!node || !node.children) return;
 
       node.children.forEach((child) => {
@@ -90,7 +86,7 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
             break;
 
           case "function_declaration":
-            handleFunction(child, nodeId, fileNodeId, filePath, scope);
+            handleFunction(child, nodeId, fileNodeId, filePath);
             break;
 
           case "class_declaration":
@@ -99,11 +95,11 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
 
           case "variable_declaration":
           case "lexical_declaration":
-            handleVariable(child, nodeId, fileNodeId, scope, filePath);
+            handleVariable(child, nodeId, scope, filePath);
             break;
         }
 
-        traverse(child, nodeId, [...scope, child]);
+        traverse(child, [...scope, child]);
       });
     }
 
@@ -157,7 +153,6 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
     nodeId: number,
     fileNodeId: number,
     filePath: string,
-    scope: ASTNode[],
   ) {
     const funcInfo = extractFunctionInfo(node);
 
@@ -183,7 +178,7 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
       });
 
       extractFunctionCalls(node, nodeId, filePath);
-      extractVariableUsage(node, nodeId, scope);
+      extractVariableUsage(node, nodeId);
     }
   }
 
@@ -230,7 +225,6 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
   function handleVariable(
     node: ASTNode,
     nodeId: number,
-    fileNodeId: number,
     scope: ASTNode[],
     filePath: string,
   ) {
@@ -313,7 +307,6 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
   function extractVariableUsage(
     funcNode: ASTNode,
     funcNodeId: number,
-    scope: ASTNode[],
   ) {
     function findIdentifiers(node: ASTNode, parent?: ASTNode) {
       if (!node) return;
@@ -326,7 +319,7 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
       ) {
         const varName = node.text;
         if (varName) {
-          const varId = findVariableInScope(varName, scope);
+          const varId = findVariableInScope();
 
           if (varId !== undefined) {
             graph.edges.push({
@@ -472,8 +465,7 @@ export function buildCodeGraphFromFiles(parsedFiles: ParsedFile[]): CodeGraph {
   }
 
   function findVariableInScope(
-    varName: string,
-    scope: ASTNode[],
+  
   ): number | undefined {
     // Simplified - in real implementation, walk up scope chain
     return undefined;

@@ -63,10 +63,10 @@ export default function CodeGraphViewer() {
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex flex-col overflow-hidden">
       {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between px-6 py-4 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <Network className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -194,7 +194,7 @@ function StatisticsView({
 
         {/* Parse Statistics */}
         {stats && (
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-5 h-5 text-blue-400" />
               <h2 className="text-lg font-semibold">Parse Statistics</h2>
@@ -237,7 +237,7 @@ function StatisticsView({
         {/* Node & Edge Types */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Node Types */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
             <h2 className="text-lg font-semibold mb-4">Node Types</h2>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(nodesByType).map(([type, count]) => (
@@ -255,7 +255,7 @@ function StatisticsView({
           </div>
 
           {/* Edge Types */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
             <h2 className="text-lg font-semibold mb-4">Relationship Types</h2>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(edgesByType).map(([type, count]) => (
@@ -276,12 +276,12 @@ function StatisticsView({
         {/* File Explorer & Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Files List */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
             <div className="p-6 border-b border-gray-700">
               <h2 className="text-lg font-semibold">Project Files</h2>
               <p className="text-xs text-gray-400 mt-1">{graph.files.length} files total</p>
             </div>
-            <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
+            <div className="p-4 space-y-2 max-h-125 overflow-y-auto custom-scrollbar">
               {graph.files.map((file: any) => (
                 <button
                   key={file.id}
@@ -293,7 +293,7 @@ function StatisticsView({
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <FileCode className="w-4 h-4 flex-shrink-0" />
+                    <FileCode className="w-4 h-4 shrink-0" />
                     <p className="font-mono text-sm truncate flex-1">{file.path}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-400 ml-6">
@@ -306,14 +306,14 @@ function StatisticsView({
           </div>
 
           {/* File Details */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
             <div className="p-6 border-b border-gray-700">
               <h2 className="text-lg font-semibold">File Details</h2>
               <p className="text-xs text-gray-400 mt-1">
                 {selectedFile ? "Viewing file information" : "Select a file to view details"}
               </p>
             </div>
-            <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+            <div className="p-4 space-y-4 max-h-125 overflow-y-auto custom-scrollbar">
               {selectedFile ? (
                 <>
                   {/* File Path */}
@@ -405,7 +405,7 @@ function StatisticsView({
                   )}
                 </>
               ) : (
-                <div className="flex items-center justify-center h-full min-h-[300px]">
+                <div className="flex items-center justify-center h-full min-h-75">
                   <div className="text-center space-y-2">
                     <FileCode className="w-12 h-12 text-gray-700 mx-auto" />
                     <p className="text-gray-500 text-sm">Select a file to view details</p>
@@ -417,7 +417,7 @@ function StatisticsView({
         </div>
 
         {/* Export Options */}
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
+        <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-800 shadow-xl">
           <h2 className="text-lg font-semibold mb-4">Export Options</h2>
           <div className="flex flex-wrap gap-3">
             <button
@@ -486,7 +486,7 @@ function MetricCard({
   };
 
   return (
-    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl p-6 border shadow-xl`}>
+    <div className={`bg-linear-to-br ${colorClasses[color]} rounded-xl p-6 border shadow-xl`}>
       <div className="flex items-center justify-between mb-3">
         <div className={`${textColors[color]}`}>{icon}</div>
         <p className="text-3xl font-bold text-white">{value.toLocaleString()}</p>

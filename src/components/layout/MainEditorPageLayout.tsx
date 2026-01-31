@@ -94,7 +94,7 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
         <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         {activeTab === "files" ? (
           <>
-            <div className="h-full w-60 bg-[#181818] flex-shrink-0 border-r border-[#3c3c3c]">
+            <div className="h-full w-60 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
               <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
                 Explorer
               </div>
@@ -110,14 +110,14 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
             {showChat && (
               <>
                 <div
-                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
+                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${
                     isResizing ? "bg-purple-500" : ""
                   }`}
                   onMouseDown={handleMouseDown}
                 />
 
                 <div
-                  className="h-full bg-[#1e1e1e] flex-shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
+                  className="h-full bg-[#1e1e1e] shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
                   style={{ width: chatWidth }}
                 >
                   <ChatInterface />
@@ -134,7 +134,7 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
         )}
       </div>
 
-      <div className="flex-shrink-0 w-full z-20">
+      <div className="shrink-0 w-full z-20">
         <TerminalWindow
           isVisible={showTerminal}
           onToggle={toggleTerminal}

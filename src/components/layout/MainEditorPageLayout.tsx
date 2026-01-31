@@ -36,11 +36,10 @@ function IconSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setActiveTab(item.id)}
-                className={`p-2 rounded-md transition-colors ${
-                  activeTab === item.id
+                className={`p-2 rounded-md transition-colors ${activeTab === item.id
                     ? "bg-white/20 text-white"
                     : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                }`}
+                  }`}
               >
                 <item.icon className="w-5 h-5" />
               </button>
@@ -84,7 +83,7 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <div className="flex-1 flex w-full min-h-0">
+      <div className="flex-1 flex w-full min-h-0 relative">
         <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         {activeTab === "files" ? (
           <>
@@ -104,9 +103,8 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
             {showChat && (
               <>
                 <div
-                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${
-                    isResizing ? "bg-purple-500" : ""
-                  }`}
+                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors flex-shrink-0 ${isResizing ? "bg-purple-500" : ""
+                    }`}
                   onMouseDown={handleMouseDown}
                 />
 
@@ -127,6 +125,9 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
           <div></div>
         )}
 
+      </div>
+
+      <div className="flex-shrink-0 w-full z-20">
         <TerminalWindow
           isVisible={showTerminal}
           onToggle={toggleTerminal}

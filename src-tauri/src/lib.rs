@@ -17,7 +17,7 @@ use tree_sitter::{Language, Node, Parser};
 // ============================================================================
 
 pub struct Neo4jState {
-    graph: Arc<Mutex<Option<Graph>>>,
+    graph: Arc<Mutex<Option<Arc<Graph>>>>,
 }
 
 impl Neo4jState {
@@ -33,11 +33,11 @@ impl Neo4jState {
             .map_err(|e| format!("Failed to connect to Neo4j: {}", e))?;
         
         let mut g = self.graph.lock().unwrap();
-        *g = Some(graph);
+        *g = Some(Arc::new(graph));
         Ok(())
     }
 
-    pub fn get_graph(&self) -> Result<Graph, String> {
+    pub fn get_graph(&self) -> Result<Arc<Graph>, String> {
         let g = self.graph.lock().unwrap();
         g.as_ref()
             .ok_or_else(|| "Not connected to Neo4j".to_string())

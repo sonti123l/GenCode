@@ -1,7 +1,6 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export function openGraphInBrowser(graph: any) {
-  console.log("openGraphInBrowser CALLED");
 
   if (!graph || !graph.nodes?.length) {
     console.error("Graph empty");
@@ -40,8 +39,7 @@ function utf8ToBase64(str: string) {
 }
 
 function generateHTML(graphJSON: string): string {
-  // The entire page is one template literal.  The graph data is injected
-  // as a JSON literal so the page is 100 % self-contained.
+  
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

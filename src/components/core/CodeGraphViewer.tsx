@@ -77,9 +77,8 @@ export default function CodeGraphViewer() {
           {/* Visual Graph button — opens in a new browser tab */}
           <button
             onClick={() => {
-               console.log("VISUAL GRAPH CLICKED");
-               openGraphInBrowser(graph)
-              }}
+              openGraphInBrowser(graph)
+            }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
           >
             <Network className="w-4 h-4" />
@@ -265,11 +264,10 @@ function StatisticsView({
                 <button
                   key={file.id}
                   onClick={() => setSelectedFile(file.path || "")}
-                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
-                    selectedFile === file.path
+                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${selectedFile === file.path
                       ? "bg-blue-600 shadow-lg shadow-blue-600/20"
                       : "bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <FileCode className="w-4 h-4 shrink-0" />
@@ -337,11 +335,10 @@ function StatisticsView({
                           <button
                             key={func.id}
                             onClick={() => setSelectedFunction(func)}
-                            className={`w-full text-left p-2.5 rounded-lg text-sm transition-all duration-200 ${
-                              selectedFunction?.id === func.id
+                            className={`w-full text-left p-2.5 rounded-lg text-sm transition-all duration-200 ${selectedFunction?.id === func.id
                                 ? "bg-green-600 shadow-lg shadow-green-600/20"
                                 : "bg-gray-800/50 border border-gray-700/50 hover:bg-gray-700/50"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-mono font-medium">{func.name}</span>

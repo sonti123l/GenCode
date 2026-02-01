@@ -1,7 +1,7 @@
 export default function GitHubSourceControl({
   className,
 }: {
-  className: string;
+  className?: string;
 }) {
   return (
     <svg

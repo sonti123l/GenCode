@@ -7,17 +7,14 @@ import {
   GraphNode,
 } from "../rootfiles/buildCodeGraphFromFiles";
 import { Network, List, Download, FileCode, GitBranch, Activity } from "lucide-react";
-import GraphVisualizer from "./GraphVisualizer";
+import { openGraphInBrowser } from "../rootfiles/openGraphInBrowser";
 
-
-type ViewMode = 'stats' | 'visual';
 
 export default function CodeGraphViewer() {
   const [graph, setGraph] = useState<CodeGraph | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<string>("");
   const [selectedFunction, setSelectedFunction] = useState<GraphNode | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('stats');
 
   useEffect(() => {
     const savedGraph = localStorage.getItem("codeGraph");
@@ -77,25 +74,13 @@ export default function CodeGraphViewer() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Visual Graph button — opens in a new browser tab */}
           <button
-            onClick={() => setViewMode('stats')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
-              viewMode === 'stats'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-            }`}
-          >
-            <List className="w-4 h-4" />
-            <span className="text-sm font-medium">Statistics</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode('visual')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
-              viewMode === 'visual'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-            }`}
+            onClick={() => {
+               console.log("VISUAL GRAPH CLICKED");
+               openGraphInBrowser(graph)
+              }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
           >
             <Network className="w-4 h-4" />
             <span className="text-sm font-medium">Visual Graph</span>
@@ -121,27 +106,21 @@ export default function CodeGraphViewer() {
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* Content Area — always the statistics view now */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === 'stats' ? (
-          <StatisticsView
-            graph={graph}
-            stats={stats}
-            nodesByType={nodesByType}
-            edgesByType={edgesByType}
-            selectedFile={selectedFile}
-            setSelectedFile={setSelectedFile}
-            selectedFunction={selectedFunction}
-            setSelectedFunction={setSelectedFunction}
-            functions={functions}
-            functionCalls={functionCalls}
-            dependencies={dependencies}
-          />
-        ) : (
-          <div className="h-full">
-            <GraphVisualizer data={graph} />
-          </div>
-        )}
+        <StatisticsView
+          graph={graph}
+          stats={stats}
+          nodesByType={nodesByType}
+          edgesByType={edgesByType}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          selectedFunction={selectedFunction}
+          setSelectedFunction={setSelectedFunction}
+          functions={functions}
+          functionCalls={functionCalls}
+          dependencies={dependencies}
+        />
       </div>
     </div>
   );

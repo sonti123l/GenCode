@@ -16,7 +16,63 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+             "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Full capability for main window",
+          "local": true,
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "core:webview:allow-create-webview-window",
+            "dialog:default",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "fs:default",
+            "fs:allow-read",
+            "fs:allow-write",
+            "fs:allow-create",
+            "fs:allow-remove",
+            "fs:allow-rename",
+            "fs:allow-mkdir",
+            "fs:allow-exists",
+            "fs:allow-copy",
+            "fs:read-all",
+            "fs:write-all",
+            {
+              "identifier": "fs:scope",
+              "allow": ["**/*"]
+            },
+            "http:default",
+            "http:allow-fetch",
+            {
+              "identifier": "http:scope",
+              "allow": [{"url": "**"}]
+            },
+            "shell:default",
+            "shell:allow-open",
+            "notification:default",
+            "notification:allow-send",
+            "clipboard:default",
+            "clipboard:allow-read-text",
+            "clipboard:allow-write-text",
+            "path:default",
+            "store:default",
+            "sql:default",
+            "event:default",
+            "window:default"
+          ]
+        },
+        {
+          "identifier": "graph-capability",
+          "description": "Graph viewer windows",
+          "local": true,
+          "permissions": [
+            "core:webview:allow-create-webview-window"
+          ]
+        }
+      ]
     }
   },
   "bundle": {

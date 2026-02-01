@@ -90,6 +90,7 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
+      <div className="flex flex-col h-[calc(100vh-34px)]">
       <div className="flex-1 flex w-full min-h-0 relative">
         <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         {activeTab === "files" ? (
@@ -133,15 +134,22 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
           <div></div>
         )}
       </div>
-
-      <div className="shrink-0 w-full z-20">
+        <div className="shrink-0 w-full z-20">
         <TerminalWindow
           isVisible={showTerminal}
           onToggle={toggleTerminal}
           cwd={tree.path}
         />
       </div>
-      <div className="h-4 bg-blue-400 w-full"/>
+      <div className="h-5.5 bg-blue-500 w-full flex justify-start items-center p-1">
+        <div>
+          <GitHubSourceControl className="w-5 h-4"/>
+        </div>
+      </div>
+      </div>
+
+
+    
 
     </div>
   );

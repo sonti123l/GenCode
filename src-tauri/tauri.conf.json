@@ -17,12 +17,14 @@
     ],
     "security": {
       "csp": null,
-             "capabilities": [
+      "capabilities": [
         {
           "identifier": "main-capability",
           "description": "Full capability for main window",
           "local": true,
-          "windows": ["main"],
+          "windows": [
+            "main"
+          ],
           "permissions": [
             "core:default",
             "core:webview:allow-create-webview-window",
@@ -37,31 +39,31 @@
             "fs:allow-rename",
             "fs:allow-mkdir",
             "fs:allow-exists",
-            "fs:allow-copy",
             "fs:read-all",
             "fs:write-all",
             {
               "identifier": "fs:scope",
-              "allow": ["**/*"]
+              "allow": [
+                "**/*"
+              ]
             },
             "http:default",
             "http:allow-fetch",
-            {
-              "identifier": "http:scope",
-              "allow": [{"url": "**"}]
-            },
             "shell:default",
             "shell:allow-open",
             "notification:default",
-            "notification:allow-send",
-            "clipboard:default",
-            "clipboard:allow-read-text",
-            "clipboard:allow-write-text",
-            "path:default",
+            "clipboard-manager:default",
+            "clipboard-manager:allow-read-text",
+            "clipboard-manager:allow-write-text",
+            "core:path:default",
             "store:default",
             "sql:default",
-            "event:default",
-            "window:default"
+            "core:event:default",
+            "core:window:default",
+            "core:window:allow-maximize",
+            "core:window:allow-minimize",
+            "core:window:allow-close",
+            "core:window:allow-toggle-maximize"
           ]
         },
         {

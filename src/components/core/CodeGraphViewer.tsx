@@ -6,7 +6,7 @@ import {
   getFunctionsInFile,
   GraphNode,
 } from "../rootfiles/buildCodeGraphFromFiles";
-import { Network, List, Download, FileCode, GitBranch, Activity } from "lucide-react";
+import { Network, Download, FileCode, GitBranch, Activity } from "lucide-react";
 import { openGraphInBrowser } from "../rootfiles/openGraphInBrowser";
 
 
@@ -76,8 +76,8 @@ export default function CodeGraphViewer() {
         <div className="flex items-center gap-3">
           {/* Visual Graph button — opens in a new browser tab */}
           <button
-            onClick={() => {
-              openGraphInBrowser(graph)
+            onClick={async () => {
+              await openGraphInBrowser(graph)
             }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
           >
@@ -265,8 +265,8 @@ function StatisticsView({
                   key={file.id}
                   onClick={() => setSelectedFile(file.path || "")}
                   className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${selectedFile === file.path
-                      ? "bg-blue-600 shadow-lg shadow-blue-600/20"
-                      : "bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50"
+                    ? "bg-blue-600 shadow-lg shadow-blue-600/20"
+                    : "bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50"
                     }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
@@ -336,8 +336,8 @@ function StatisticsView({
                             key={func.id}
                             onClick={() => setSelectedFunction(func)}
                             className={`w-full text-left p-2.5 rounded-lg text-sm transition-all duration-200 ${selectedFunction?.id === func.id
-                                ? "bg-green-600 shadow-lg shadow-green-600/20"
-                                : "bg-gray-800/50 border border-gray-700/50 hover:bg-gray-700/50"
+                              ? "bg-green-600 shadow-lg shadow-green-600/20"
+                              : "bg-gray-800/50 border border-gray-700/50 hover:bg-gray-700/50"
                               }`}
                           >
                             <div className="flex items-center justify-between">

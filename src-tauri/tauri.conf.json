@@ -10,20 +10,22 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "decorations": false
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' asset: http://asset.localhost https://asset.localhost http://localhost:1420 cmd: data: blob: filesystem:;",
       "capabilities": [
         {
           "identifier": "main-capability",
           "description": "Full capability for main window",
           "local": true,
           "windows": [
-            "main"
+            "main",
+            "code-graph-*"
           ],
           "permissions": [
             "core:default",
@@ -64,14 +66,6 @@
             "core:window:allow-minimize",
             "core:window:allow-close",
             "core:window:allow-toggle-maximize"
-          ]
-        },
-        {
-          "identifier": "graph-capability",
-          "description": "Graph viewer windows",
-          "local": true,
-          "permissions": [
-            "core:webview:allow-create-webview-window"
           ]
         }
       ]

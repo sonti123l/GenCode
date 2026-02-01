@@ -74,16 +74,6 @@ export default function CodeGraphViewer() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Visual Graph button — opens in a new browser tab */}
-          <button
-            onClick={async () => {
-              await openGraphInBrowser(graph)
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
-          >
-            <Network className="w-4 h-4" />
-            <span className="text-sm font-medium">Visual Graph</span>
-          </button>
 
           <div className="w-px h-8 bg-gray-700 mx-2" />
 

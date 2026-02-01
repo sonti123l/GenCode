@@ -778,6 +778,9 @@ export default function ChatInterface() {
           ...(rawGraph.files && { files: rawGraph.files }),
         };
 
+        // Store in Neo4j first
+        await invoke("store_graph_in_neo4j", { graph });
+
         const context = await invoke<GraphContext>("generate_graph_context", {
           graph,
         });

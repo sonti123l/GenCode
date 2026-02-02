@@ -150,11 +150,6 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
           </div>
         </div>
       </div>
-
-
-
-
-
     </div>
   );
 }

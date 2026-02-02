@@ -1,5 +1,5 @@
 import { useEditor } from "@/context/EditorContext";
-import Editor from "@monaco-editor/react";
+import Editor, { DiffEditor } from "@monaco-editor/react";
 
 function getLanguageFromFileName(fileName: string): string {
   const ext = fileName.split(".").pop()?.toLowerCase();
@@ -37,7 +37,7 @@ function getLanguageFromFileName(fileName: string): string {
 }
 
 export default function CodeEditorPage() {
-  const { selectedFile, fileContent } = useEditor();
+  const { selectedFile, fileContent, editorMode } = useEditor();
 
   if (!selectedFile) {
     return (
@@ -59,32 +59,54 @@ export default function CodeEditorPage() {
         <div className="text-sm text-[#cccccc]">{fileName}</div>
       </div>
 
-      <Editor
-        language={language}
-        value={fileContent}
-        theme="vs-dark"
-        className="flex-1"
-        options={{
-          fontSize: 14,
-          fontFamily: "Consolas, 'Courier New', monospace",
-          lineNumbers: "on",
-          minimap: { enabled: false },
-          scrollbar: {
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
-          },
-          cursorStyle: "line",
-          cursorBlinking: "blink",
-          scrollBeyondLastLine: false,
-          smoothScrolling: false,
-          padding: { top: 10, bottom: 10 },
-          tabSize: 2,
-          insertSpaces: true,
-          automaticLayout: true,
-          renderWhitespace: "none",
-          wordWrap: "off",
-        }}
-      />
+      {editorMode === "diff" ? (
+        <DiffEditor
+          original={useEditor().diffOriginal}
+          modified={fileContent}
+          language={language}
+          theme="vs-dark"
+          className="flex-1"
+          options={{
+            fontSize: 14,
+            fontFamily: "Consolas, 'Courier New', monospace",
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollbar: {
+              verticalScrollbarSize: 10,
+              horizontalScrollbarSize: 10,
+            },
+            readOnly: true, // Typically diff view is read-only or focused on edit side, let's keep it safe for now 
+            renderSideBySide: true,
+          }}
+        />
+      ) : (
+        <Editor
+          language={language}
+          value={fileContent}
+          theme="vs-dark"
+          className="flex-1"
+          options={{
+            fontSize: 14,
+            fontFamily: "Consolas, 'Courier New', monospace",
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollbar: {
+              verticalScrollbarSize: 10,
+              horizontalScrollbarSize: 10,
+            },
+            cursorStyle: "line",
+            cursorBlinking: "blink",
+            scrollBeyondLastLine: false,
+            smoothScrolling: false,
+            padding: { top: 10, bottom: 10 },
+            tabSize: 2,
+            insertSpaces: true,
+            automaticLayout: true,
+            renderWhitespace: "none",
+            wordWrap: "off",
+          }}
+        />
+      )}
     </div>
   );
 }

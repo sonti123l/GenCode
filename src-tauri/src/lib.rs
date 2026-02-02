@@ -1398,6 +1398,8 @@ pub fn run() {
             graph_to_query_context,
             check_is_git_repo,
             get_git_status,
+            get_diff_content,
+            get_commit_history,
             git_add,
             git_commit,
             git_push,

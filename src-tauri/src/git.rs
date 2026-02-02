@@ -21,6 +21,97 @@ pub fn check_is_git_repo(path: String) -> bool {
     Repository::open(path).is_ok()
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CommitInfo {
+    pub id: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub parent_ids: Vec<String>,
+}
+
+#[tauri::command]
+pub fn get_diff_content(repo_path: String, file_path: String) -> Result<String, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    
+    // Get content from HEAD (original)
+    let head = repo.head().ok();
+    
+    if let Some(h) = head {
+        let target = h.target().unwrap();
+        let commit = repo.find_commit(target).map_err(|e| e.message().to_string())?;
+        let tree = commit.tree().map_err(|e| e.message().to_string())?;
+        
+        // Find the file in the tree
+        // Note: git2 file paths in trees are relative to root.
+        // We assume file_path passed in is either relative or we need to look it up.
+        // Usually, the frontend should pass relative path.
+        
+        let path = Path::new(&file_path);
+        // If the path in the tree is just the filename or relative path
+        let input_path_str = path.to_str().unwrap_or("").replace("\\", "/"); 
+        
+        // Try to find entry
+        // Tree::get_path handles relative paths like "src/main.rs"
+        let entry = tree.get_path(Path::new(&input_path_str));
+
+        match entry {
+            Ok(e) => {
+                let object = e.to_object(&repo).map_err(|e| e.message().to_string())?;
+                if let Some(blob) = object.as_blob() {
+                    let content = std::str::from_utf8(blob.content()).unwrap_or("").to_string();
+                    return Ok(content);
+                }
+            }
+            Err(_) => {
+                // File might be new (not in HEAD), so original content is empty
+                return Ok("".to_string());
+            }
+        }
+    }
+    
+    Ok("".to_string()) // No HEAD or file not found implies empty original
+}
+
+#[tauri::command]
+pub fn get_commit_history(repo_path: String, limit: Option<usize>) -> Result<Vec<CommitInfo>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let mut revwalk = repo.revwalk().map_err(|e| e.message().to_string())?;
+    
+    revwalk.push_head().map_err(|e| e.message().to_string())?;
+    revwalk.set_sorting(git2::Sort::TIME).map_err(|e| e.message().to_string())?;
+    
+    let mut history = Vec::new();
+    let limit = limit.unwrap_or(50);
+    
+    for oid in revwalk.take(limit) {
+        let oid = oid.map_err(|e| e.message().to_string())?;
+        let commit = repo.find_commit(oid).map_err(|e| e.message().to_string())?;
+        
+        let author = commit.author();
+        let author_name = author.name().unwrap_or("Unknown").to_string();
+        
+        let time = commit.time();
+        // Convert time to ISO string or readable format if possible, 
+        // for now simple unix timestamp string or we format it if we pull in chrono.
+        // Let's just return a simple formatted string or raw timestamp.
+        let date = format!("{}", time.seconds());
+
+        let parents: Vec<String> = commit.parent_ids().map(|p| p.to_string()).collect();
+
+        history.push(CommitInfo {
+            id: commit.id().to_string(),
+            message: commit.message().unwrap_or("").to_string(),
+            author: author_name,
+            date,
+            parent_ids: parents,
+        });
+    }
+    
+    Ok(history)
+}
+
+
 #[tauri::command]
 pub fn get_git_status(path: String) -> Result<GitRepoStatus, String> {
     let repo = Repository::open(&path).map_err(|e| e.message().to_string())?;

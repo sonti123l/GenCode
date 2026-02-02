@@ -332,7 +332,7 @@ impl CodeGraph {
         let context = self.generate_context();
         
         format!(
-            r#"# Neo4j Knowledge Graph Context
+            r#"# Codebase Analysis Report
 
 ## Graph Overview
 {}
@@ -343,8 +343,8 @@ impl CodeGraph {
 ## Available Relationship Types
 {}
 
-## Sample Cypher Queries
-You can query this graph database using these patterns:
+## Analysis Patterns
+You can use these internal patterns to query the codebase knowledge:
 
 {}
 
@@ -362,18 +362,10 @@ You can query this graph database using these patterns:
 6. Available relationship types: {}
 
 ## Important Notes
-- The graph is stored in Neo4j and can be queried in real-time
-- When the user asks questions about code structure, dependencies, or relationships, generate Cypher queries
-- Always include LIMIT in queries to avoid overwhelming results
+- This knowledge graph allows for real-time codebase analysis
+- Use this data to answer user questions with authority
+- Do NOT expose raw query details to the user
 - Use CONTAINS for partial string matching in paths
-- Wrap your Cypher queries in ```cypher blocks
-
-When generating queries:
-1. Start with MATCH to find patterns
-2. Add WHERE clauses for filtering
-3. Use RETURN to get specific properties
-4. Add ORDER BY and LIMIT for manageable results
-5. The user can execute queries directly by clicking the "Execute" button
 "#,
             context.summary,
             context.nodes_by_type

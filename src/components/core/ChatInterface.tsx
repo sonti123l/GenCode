@@ -37,7 +37,7 @@ import {
   ChatMessage,
 } from "@/helpers/interfaces/file-types";
 
-const DEFAULT_MODEL = "deepseek-v3.1:671b-cloud";
+const DEFAULT_MODEL = "glm-4.6:cloud";
 
 interface GraphContext {
   summary: string;

@@ -15,6 +15,7 @@ import { useChatVisibility, useTerminalVisibility } from "../core/AppLayout";
 import GraphIcon from "@/icons/graph-icon";
 import CodeGraphViewer from "../core/CodeGraphViewer";
 import GitHubSourceControl from "@/icons/source-control";
+import SourceControlPanel from "../git/SourceControlPanel";
 
 function IconSidebar({
   activeTab,
@@ -42,11 +43,10 @@ function IconSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setActiveTab(item.id)}
-                className={`p-2 rounded-md transition-colors ${
-                  activeTab === item.id
-                    ? "bg-white/20 text-white"
-                    : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                }`}
+                className={`p-2 rounded-md transition-colors ${activeTab === item.id
+                  ? "bg-white/20 text-white"
+                  : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                  }`}
               >
                 <item.icon className="w-5 h-5" />
               </button>
@@ -91,74 +91,71 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
       onMouseLeave={handleMouseUp}
     >
       <div className="flex flex-col h-[calc(100vh-34px)]">
-      <div className="flex-1 flex w-full min-h-0 relative">
-        <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        {activeTab === "files" ? (
-          <>
-            <div className="h-full w-60 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
-              <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
-                Explorer
-              </div>
-              <div className="h-[calc(100%-2rem)]">
-                <FileSystemRepresentation tree={tree} />
-              </div>
-            </div>
-
-            <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
-              <CodeEditorPage />
-            </div>
-
-            {showChat && (
-              <>
-                <div
-                  className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${
-                    isResizing ? "bg-purple-500" : ""
-                  }`}
-                  onMouseDown={handleMouseDown}
-                />
-
-                <div
-                  className="h-full bg-[#1e1e1e] shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
-                  style={{ width: chatWidth }}
-                >
-                  <ChatInterface />
+        <div className="flex-1 flex w-full min-h-0 relative">
+          <IconSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+          {activeTab === "files" ? (
+            <>
+              <div className="h-full w-60 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
+                <div className="h-8 flex items-center px-3 text-xs text-gray-400 uppercase tracking-wider border-b border-[#3c3c3c]">
+                  Explorer
                 </div>
-              </>
-            )}
-          </>
-        ) : activeTab === "graph" ? (
-          <div className="h-[calc(100vh-10px)] overflow-y-auto w-full">
-            <CodeGraphViewer />
-          </div>
-        ) : (
-          <div></div>
-        )}
-      </div>
+                <div className="h-[calc(100%-2rem)]">
+                  <FileSystemRepresentation tree={tree} />
+                </div>
+              </div>
+
+              <div className="h-full flex-1 bg-[#1e1e1e] min-w-0">
+                <CodeEditorPage />
+              </div>
+
+              {showChat && (
+                <>
+                  <div
+                    className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${isResizing ? "bg-purple-500" : ""
+                      }`}
+                    onMouseDown={handleMouseDown}
+                  />
+
+                  <div
+                    className="h-full bg-[#1e1e1e] shrink-0 flex flex-col border-l border-[#3c3c3c] relative overflow-hidden"
+                    style={{ width: chatWidth }}
+                  >
+                    <ChatInterface />
+                  </div>
+                </>
+              )}
+            </>
+          ) : activeTab === "graph" ? (
+            <div className="h-[calc(100vh-10px)] overflow-y-auto w-full">
+              <CodeGraphViewer />
+            </div>
+          ) : activeTab === "github source control" ? (
+            <div className="h-full w-80 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
+              <SourceControlPanel repoPath={tree.path} />
+            </div>
+          ) : (
+            <div></div>
+          )}
+        </div>
         <div className="shrink-0 w-full z-20">
-        <TerminalWindow
-          isVisible={showTerminal}
-          onToggle={toggleTerminal}
-          cwd={tree.path}
-        />
-      </div>
-      <div className="h-5.5 bg-blue-500 w-full flex justify-start items-center p-1">
-        <div>
-          <GitHubSourceControl className="w-5 h-4"/>
+          <TerminalWindow
+            isVisible={showTerminal}
+            onToggle={toggleTerminal}
+            cwd={tree.path}
+          />
+        </div>
+        <div className="h-5.5 bg-blue-500 w-full flex justify-start items-center p-1">
+          <div>
+            <GitHubSourceControl className="w-5 h-4" />
+          </div>
         </div>
       </div>
-      </div>
 
 
-    
+
+
 
     </div>
   );
 }
 
-export function GitHubSourceControlPanel(){
-  return(
-    <div>
-      
-    </div>
-  )
-}

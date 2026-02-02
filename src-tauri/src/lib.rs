@@ -12,6 +12,9 @@ use tokio::fs;
 use tokio::task;
 use tree_sitter::{Language, Node, Parser};
 
+pub mod git;
+use git::*;
+
 // ============================================================================
 // NEO4J STATE
 // ============================================================================
@@ -1224,7 +1227,17 @@ async fn create_terminal(
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
     #[cfg(target_os = "windows")]
-    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+    let shell = {
+        let git_bash = Path::new("C:\\Program Files\\Git\\bin\\bash.exe");
+        let wsl = Path::new("C:\\Windows\\System32\\wsl.exe");
+        if git_bash.exists() {
+            git_bash.to_str().unwrap().to_string()
+        } else if wsl.exists() {
+            wsl.to_str().unwrap().to_string()
+        } else {
+            std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+        }
+    };
     
     #[cfg(not(target_os = "windows"))]
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
@@ -1232,7 +1245,9 @@ async fn create_terminal(
     let mut cmd = CommandBuilder::new(&shell);
     
     if let Some(dir) = cwd {
-        cmd.cwd(dir);
+        if Path::new(&dir).exists() {
+             cmd.cwd(dir);
+        }
     }
 
     let _child = pair
@@ -1381,6 +1396,12 @@ pub fn run() {
             get_graph_stats,
             generate_graph_context,
             graph_to_query_context,
+            check_is_git_repo,
+            get_git_status,
+            git_add,
+            git_commit,
+            git_push,
+            git_pull,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

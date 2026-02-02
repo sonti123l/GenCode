@@ -40,3 +40,5 @@ tree-sitter-go = "0.20"
 tree-sitter-c = "0.20"
 tree-sitter-cpp = "0.20"
 neo4rs = "0.7"
+git2 = "0.18"
+

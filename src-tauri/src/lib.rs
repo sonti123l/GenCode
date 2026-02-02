@@ -114,6 +114,7 @@ pub struct CodeGraph {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GraphContext {
     pub summary: String,
+    pub structure_overview: String,
     pub cypher_schema: String,
     pub sample_queries: Vec<String>,
     pub nodes_by_type: HashMap<String, usize>,
@@ -262,9 +263,13 @@ impl CodeGraph {
         let summary = self.generate_summary(&nodes_by_type, &edges_by_type);
         let cypher_schema = self.generate_cypher_schema(&nodes_by_type, &edges_by_type);
         let sample_queries = self.generate_sample_queries();
+        
+        // Generate a structural overview (list of files and key components)
+        let structure_overview = self.generate_structure_overview();
 
         GraphContext {
             summary,
+            structure_overview, // Added field
             cypher_schema,
             sample_queries,
             nodes_by_type,
@@ -277,6 +282,31 @@ impl CodeGraph {
                 avg_connections_per_node: avg_connections,
             },
         }
+    }
+
+    fn generate_structure_overview(&self) -> String {
+        let mut overview = String::new();
+        
+        // Collect files
+        let mut file_paths: Vec<&String> = self.nodes.iter()
+            .filter(|n| n.node_type == "FILE" || n.node_type == "file")
+            .filter_map(|n| n.path.as_ref())
+            .collect();
+        file_paths.sort();
+
+        overview.push_str("### File Structure\n");
+        if file_paths.is_empty() {
+             overview.push_str("- No files detected in graph.\n");
+        } else {
+            for path in file_paths.iter().take(50) { // Limit to 50 files to avoid context overflow
+                overview.push_str(&format!("- {}\n", path));
+            }
+            if file_paths.len() > 50 {
+                overview.push_str(&format!("... and {} more files.\n", file_paths.len() - 50));
+            }
+        }
+
+        overview
     }
 
     fn generate_summary(&self, nodes_by_type: &HashMap<String, usize>, edges_by_type: &HashMap<String, usize>) -> String {
@@ -317,14 +347,14 @@ impl CodeGraph {
 
     fn generate_sample_queries(&self) -> Vec<String> {
         vec![
-            "// Find all files\nMATCH (f:FILE) RETURN f.path, f.language LIMIT 10".to_string(),
+            "// WHOLE CODEBASE ANALYSIS (Architecture & Dependencies)\nMATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 1000".to_string(),
+            "// Find all files\nMATCH (f:FILE) RETURN f.path, f.language LIMIT 50".to_string(),
             "// Find all functions in a specific file\nMATCH (file:FILE)-[:CONTAINS]->(func:FUNCTION)\nWHERE file.path CONTAINS 'example'\nRETURN func.name, func.lines".to_string(),
             "// Find function call chains\nMATCH path = (f1:FUNCTION)-[:CALLS*1..3]->(f2:FUNCTION)\nRETURN path LIMIT 10".to_string(),
             "// Find all imports for a file\nMATCH (file:FILE)-[:IMPORTS_FROM]->(imported:FILE)\nRETURN file.path, imported.path LIMIT 20".to_string(),
             "// Find classes that extend other classes\nMATCH (child:CLASS)-[:EXTENDS]->(parent:CLASS)\nRETURN child.name, parent.name".to_string(),
-            "// Find most connected nodes\nMATCH (n)-[r]-()\nRETURN n.name, n.id, labels(n)[0] as label, count(r) AS connections\nORDER BY connections DESC\nLIMIT 10".to_string(),
+            "// Find most connected nodes (Hubs)\nMATCH (n)-[r]-()\nRETURN n.name, n.id, labels(n)[0] as label, count(r) AS connections\nORDER BY connections DESC\nLIMIT 10".to_string(),
             "// Find circular dependencies\nMATCH path = (a:FILE)-[:IMPORTS_FROM*2..5]->(a)\nRETURN path LIMIT 5".to_string(),
-            "// Find files with no dependencies\nMATCH (f:FILE)\nWHERE NOT (f)-[:IMPORTS_FROM]-()\nRETURN f.path, f.language".to_string(),
         ]
     }
 
@@ -335,6 +365,9 @@ impl CodeGraph {
             r#"# Codebase Analysis Report
 
 ## Graph Overview
+{}
+
+## Structural Overview
 {}
 
 ## Available Node Types
@@ -368,6 +401,7 @@ You can use these internal patterns to query the codebase knowledge:
 - Use CONTAINS for partial string matching in paths
 "#,
             context.summary,
+            context.structure_overview, // Inject Structural Overview
             context.nodes_by_type
                 .iter()
                 .map(|(k, v)| format!("- :{} ({} nodes)", k.to_uppercase(), v))

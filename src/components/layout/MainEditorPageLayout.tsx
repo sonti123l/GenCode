@@ -16,6 +16,7 @@ import GraphIcon from "@/icons/graph-icon";
 import CodeGraphViewer from "../core/CodeGraphViewer";
 import GitHubSourceControl from "@/icons/source-control";
 import SourceControlPanel from "../git/SourceControlPanel";
+import DiffCodeEditorPage from "../core/DiffCodeEditorPage";
 
 function IconSidebar({
   activeTab,
@@ -43,10 +44,11 @@ function IconSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setActiveTab(item.id)}
-                className={`p-2 rounded-md transition-colors ${activeTab === item.id
-                  ? "bg-white/20 text-white"
-                  : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                  }`}
+                className={`p-2 rounded-md transition-colors ${
+                  activeTab === item.id
+                    ? "bg-white/20 text-white"
+                    : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                }`}
               >
                 <item.icon className="w-5 h-5" />
               </button>
@@ -111,8 +113,9 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
               {showChat && (
                 <>
                   <div
-                    className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${isResizing ? "bg-purple-500" : ""
-                      }`}
+                    className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${
+                      isResizing ? "bg-purple-500" : ""
+                    }`}
                     onMouseDown={handleMouseDown}
                   />
 
@@ -130,8 +133,13 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
               <CodeGraphViewer />
             </div>
           ) : activeTab === "github source control" ? (
-            <div className="h-full w-80 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
-              <SourceControlPanel repoPath={tree.path} />
+            <div className="flex w-full">
+              <div className="h-full w-80 bg-[#181818] shrink-0 border-r border-[#3c3c3c]">
+                <SourceControlPanel repoPath={tree.path} />
+              </div>
+              <div className="w-[calc(100vw-300px)]">
+                <DiffCodeEditorPage />
+              </div>
             </div>
           ) : (
             <div></div>
@@ -153,4 +161,3 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
     </div>
   );
 }
-

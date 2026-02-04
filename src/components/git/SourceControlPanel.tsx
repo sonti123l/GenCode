@@ -11,8 +11,11 @@ import {
     ChevronDown,
     Undo2,
     File,
-    ArrowUp,
-    ArrowDown
+    GitPullRequest,
+    GitCommit,
+    GitBranch,
+    X,
+    Minus
 } from "lucide-react";
 
 interface GitFileStatus {
@@ -38,7 +41,10 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
     const [error, setError] = useState<string | null>(null);
     const [stagedOpen, setStagedOpen] = useState(true);
     const [changesOpen, setChangesOpen] = useState(true);
-    const [graphOpen, setGraphOpen] = useState(true);
+    const [graphOpen, setGraphOpen] = useState(false);
+    const [inputFocused, setInputFocused] = useState(false);
+
+    const { setSelectedFile, setFileContent, setEditorMode, setDiffOriginal } = useEditor();
 
     useEffect(() => {
         checkRepo();
@@ -83,8 +89,17 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
         }
     };
 
+    const unstageFile = async (filePath: string) => {
+        try {
+            await invoke("git_unstage", { repoPath, filePath });
+            refreshStatus();
+        } catch (err: any) {
+            setError("Failed to unstage file: " + err);
+        }
+    };
+
     const handleCommit = async () => {
-        if (!commitMessage) return;
+        if (!commitMessage.trim()) return;
         try {
             setLoading(true);
             await invoke("git_commit", { repoPath, message: commitMessage });
@@ -121,11 +136,7 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
         }
     }
 
-    const { setSelectedFile, setFileContent, setEditorMode, setDiffOriginal } = useEditor(); // Add hook
-
     const handleFileClick = async (filePath: string) => {
-        // Construct full path - assumption: repoPath is absolute, filePath is relative
-        // We need to normalize separators
         const normalizedRepoPath = repoPath.replace(/\\/g, '/').replace(/\/$/, '');
         const normalizedFilePath = filePath.replace(/\\/g, '/');
         const fullPath = `${normalizedRepoPath}/${normalizedFilePath}`;
@@ -134,21 +145,15 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
 
         try {
             setLoading(true);
-
-            // 1. Get current content (Modified)
             const currentContent = await invoke<string>("read_file_while_content", { path: fullPath });
             setFileContent(currentContent);
 
-            // 2. Get original content (HEAD)
             const originalContent = await invoke<string>("get_diff_content", {
                 repoPath: repoPath,
                 filePath: filePath
             });
             setDiffOriginal(originalContent);
-
-            // 3. Set Mode
             setEditorMode("diff");
-
         } catch (err) {
             console.error("Failed to open diff:", err);
             setError("Failed to open diff: " + err);
@@ -174,29 +179,14 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
         }
     };
 
-
-    if (isRepo === false) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-[#cccccc] p-4 text-center bg-[#181818]">
-                <p className="text-sm">No source control providers registered.</p>
-            </div>
-        );
-    }
-
-    if (loading && !status) {
-        return (
-            <div className="flex items-center justify-center h-full bg-[#181818]">
-                <div className="h-0.5 w-full bg-[#007fd4] animate-progress-indeterminate"></div>
-            </div>
-        );
-    }
-
     const getFileStatusColor = (status: string) => {
         switch (status) {
-            case "M": return "text-[#e2c08d]"; // Modified (Yellowish)
-            case "A": return "text-[#73c991]"; // Added (Greenish)
-            case "D": return "text-[#c74e39]"; // Deleted (Redish)
-            case "U": return "text-[#73c991]"; // Untracked (Greenish - typically U is Green/Added in VSCode)
+            case "M": return "text-[#e2c08d]";
+            case "A": return "text-[#73c991]";
+            case "D": return "text-[#f48771]";
+            case "U": return "text-[#73c991]";
+            case "R": return "text-[#73c991]";
+            case "C": return "text-[#73c991]";
             default: return "text-[#cccccc]";
         }
     };
@@ -207,200 +197,347 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
             case "A": return "A";
             case "D": return "D";
             case "U": return "U";
-            default: return "";
+            case "R": return "R";
+            case "C": return "C";
+            default: return "?";
         }
     }
 
+    const getFileName = (path: string) => {
+        return path.split(/[\\/]/).pop() || path;
+    };
+
+    const getFilePath = (path: string) => {
+        const lastSlash = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
+        return lastSlash > 0 ? path.substring(0, lastSlash) : '';
+    };
+
+    if (isRepo === false) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full text-[#858585] p-6 text-center bg-[#1e1e1e]">
+                <GitBranch className="w-12 h-12 mb-3 opacity-40" />
+                <p className="text-sm mb-1">No source control providers registered.</p>
+                <p className="text-xs opacity-70">Initialize a git repository to get started.</p>
+            </div>
+        );
+    }
+
+    if (loading && !status) {
+        return (
+            <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
+                <div className="flex flex-col items-center gap-2 text-[#858585]">
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <span className="text-xs">Loading repository...</span>
+                </div>
+            </div>
+        );
+    }
+
+    const totalChanges = (status?.staged?.length || 0) + (status?.changes?.length || 0);
+
     return (
-        <div className="flex flex-col h-full bg-[#181818] text-[#cccccc] select-none text-[13px] font-sans">
+        <div className="flex flex-col h-full bg-[#1e1e1e] text-[#cccccc] select-none text-[13px] font-sans">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 opacity-100 hover:opacity-100 uppercase tracking-wide text-[11px] font-bold text-[#bbbbbb] shrink-0">
-                <span>Source Control</span>
-                <div className="flex gap-1.5">
-                    <button onClick={handlePull} title="Pull" className="hover:bg-[#ffffff1f] p-0.5 rounded">
-                        <ArrowDown className="w-4 h-4" />
+            <div className="flex items-center justify-between px-3 h-[35px] border-b border-[#2d2d2d] shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#cccccc]">
+                        Source Control
+                    </span>
+                    {totalChanges > 0 && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-[#1a7dc4] text-white font-medium">
+                            {totalChanges}
+                        </span>
+                    )}
+                </div>
+                <div className="flex gap-0.5">
+                    <button 
+                        onClick={refreshStatus} 
+                        title="Refresh" 
+                        className="p-1 hover:bg-[#2a2d2e] rounded transition-colors"
+                        disabled={loading}
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    <button onClick={handlePush} title="Push" className="hover:bg-[#ffffff1f] p-0.5 rounded">
-                        <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button onClick={refreshStatus} title="Refresh" className="hover:bg-[#ffffff1f] p-0.5 rounded">
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <button title="More Actions..." className="hover:bg-[#ffffff1f] p-0.5 rounded">
+                    <button 
+                        title="More Actions..." 
+                        className="p-1 hover:bg-[#2a2d2e] rounded transition-colors"
+                    >
                         <MoreHorizontal className="w-4 h-4" />
                     </button>
                 </div>
             </div>
 
-            {error && (
-                <div className="px-3 py-2 bg-[#5a1d1d] text-white text-xs break-words">
-                    {error}
+            {/* Branch Info */}
+            {status && (
+                <div className="px-3 py-2 border-b border-[#2d2d2d] bg-[#252526] shrink-0">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[11px]">
+                            <GitBranch className="w-3.5 h-3.5" />
+                            <span className="text-[#cccccc] font-medium">{status.branch}</span>
+                        </div>
+                        <div className="flex gap-1">
+                            <button 
+                                onClick={handlePull} 
+                                title="Pull" 
+                                className="p-1 hover:bg-[#2a2d2e] rounded text-[#cccccc] hover:text-white transition-colors"
+                                disabled={loading}
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                </svg>
+                            </button>
+                            <button 
+                                onClick={handlePush} 
+                                title="Push" 
+                                className="p-1 hover:bg-[#2a2d2e] rounded text-[#cccccc] hover:text-white transition-colors"
+                                disabled={loading}
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* Commit Input Area */}
-            <div className="px-2 py-2 shrink-0">
-                <div className="flex flex-col gap-2">
-                    <textarea
-                        className="w-full bg-[#2b2b2b] border border-[#3c3c3c] rounded-sm p-1.5 text-[13px] text-[#cccccc] placeholder-[#7e7e7e] focus:outline-none focus:border-[#007fd4] resize-none font-sans"
-                        rows={1}
-                        style={{ minHeight: '32px' }}
-                        placeholder="Message (Ctrl+Enter to commit)"
-                        value={commitMessage}
-                        onChange={(e) => setCommitMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.ctrlKey && e.key === "Enter") {
-                                handleCommit();
-                            }
-                        }}
-                    />
-                    <button
-                        onClick={handleCommit}
-                        disabled={!commitMessage || loading || (!status?.staged?.length && !status?.changes?.length)}
-                        className={`w-full py-1.5 px-3 rounded-sm flex items-center justify-center gap-2 text-[13px] font-medium text-white transition-colors ${!commitMessage || loading
-                            ? "bg-[#4d4d4d] cursor-not-allowed opacity-50"
-                            : "bg-[#007fd4] hover:bg-[#026ec1]"
-                            }`}
-                    >
-                        <Check className="w-3.5 h-3.5" />
-                        Commit
+            {/* Error Banner */}
+            {error && (
+                <div className="px-3 py-2 bg-[#5a1d1d] text-[#f48771] text-[11px] border-b border-[#2d2d2d] flex items-start gap-2 shrink-0">
+                    <span className="flex-1">{error}</span>
+                    <button onClick={() => setError(null)} className="hover:text-white">
+                        <X className="w-3.5 h-3.5" />
                     </button>
+                </div>
+            )}
+
+            {/* Commit Input */}
+            <div className="px-3 py-3 border-b border-[#2d2d2d] shrink-0">
+                <div className="flex flex-col gap-2">
+                    <div className={`relative ${inputFocused ? 'ring-1 ring-[#007acc]' : ''}`}>
+                        <input
+                            className="w-full bg-[#3c3c3c] border border-[#3c3c3c] rounded px-2 py-1.5 text-[12px] text-[#cccccc] placeholder-[#858585] focus:outline-none focus:bg-[#3c3c3c] focus:border-[#007acc] transition-colors"
+                            placeholder="Message (Ctrl+Enter to commit)"
+                            value={commitMessage}
+                            onChange={(e) => setCommitMessage(e.target.value)}
+                            onFocus={() => setInputFocused(true)}
+                            onBlur={() => setInputFocused(false)}
+                            onKeyDown={(e) => {
+                                if (e.ctrlKey && e.key === "Enter") {
+                                    handleCommit();
+                                }
+                            }}
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleCommit}
+                            disabled={!commitMessage.trim() || loading || !status?.staged?.length}
+                            className={`flex-1 py-1.5 px-3 rounded flex items-center justify-center gap-1.5 text-[12px] font-medium transition-all ${
+                                !commitMessage.trim() || loading || !status?.staged?.length
+                                    ? "bg-[#2d2d2d] text-[#656565] cursor-not-allowed"
+                                    : "bg-[#0e639c] hover:bg-[#1177bb] text-white"
+                            }`}
+                        >
+                            <Check className="w-3.5 h-3.5" />
+                            Commit
+                        </button>
+                        <button
+                            className="px-2 py-1.5 rounded bg-[#2d2d2d] hover:bg-[#3c3c3c] text-[#cccccc] transition-colors"
+                            title="Commit options"
+                        >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-                {/* Helper to render file lists */}
+            {/* File Lists */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                {/* Staged Changes */}
                 {status?.staged && status.staged.length > 0 && (
-                    <div>
+                    <div className="border-b border-[#2d2d2d]">
                         <div
-                            className="flex items-center px-1 py-1 hover:bg-[#2a2d2e] cursor-pointer group"
+                            className="flex items-center px-2 py-1.5 hover:bg-[#2a2d2e] cursor-pointer sticky top-0 bg-[#1e1e1e] z-10"
                             onClick={() => setStagedOpen(!stagedOpen)}
                         >
-                            {stagedOpen ? <ChevronDown className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" /> : <ChevronRight className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" />}
-                            <span className="font-bold text-[11px] uppercase tracking-wide">Staged Changes</span>
-                            <span className="ml-2 px-1.5 rounded-full bg-[#3c3c3c] text-[#cccccc] text-[10px]">{status.staged.length}</span>
-                            <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
-                                {/* Bulk actions could go here */}
+                            {stagedOpen ? (
+                                <ChevronDown className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                            ) : (
+                                <ChevronRight className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                            )}
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#cccccc]">
+                                Staged Changes
+                            </span>
+                            <span className="ml-2 px-1.5 py-0.5 text-[9px] rounded-full bg-[#3c3c3c] text-[#cccccc] font-medium">
+                                {status.staged.length}
+                            </span>
+                            <div className="ml-auto flex gap-0.5">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        status.staged.forEach(f => unstageFile(f.path));
+                                    }}
+                                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#3c3c3c] rounded transition-all"
+                                    title="Unstage All Changes"
+                                >
+                                    <Minus className="w-3 h-3" />
+                                </button>
                             </div>
                         </div>
 
-                        {stagedOpen && status.staged.map((file) => (
-                            <div
-                                key={file.path}
-                                className="flex items-center px-4 py-0.5 hover:bg-[#2a2d2e] group cursor-pointer h-[22px]"
-                                onClick={() => handleFileClick(file.path)}
-                            >
-                                <span className={`w-3.5 text-center text-[10px] mr-1.5 ${getFileStatusColor(file.status)}`}>
-                                    {getFileStatusBadge(file.status)}
-                                </span>
-                                <span className="truncate flex-1 text-[#cccccc]" title={file.path}>
-                                    {file.path.split(/[\\/]/).pop()}
-                                    <span className="text-[#6e6e6e] text-[11px] ml-1.5">
-                                        {file.path.includes('\\') || file.path.includes('/') ? file.path.substring(0, Math.max(file.path.lastIndexOf('\\'), file.path.lastIndexOf('/'))) : ''}
-                                    </span>
-                                </span>
-                                <div className="hidden group-hover:flex items-center gap-1.5 mr-2">
-                                    {/* Unstage Action */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenFile(e, file.path);
-                                        }}
-                                        className="text-[#cccccc] hover:text-white"
-                                        title="Open File"
+                        {stagedOpen && (
+                            <div>
+                                {status.staged.map((file) => (
+                                    <div
+                                        key={file.path}
+                                        className="flex items-center px-7 py-1 hover:bg-[#2a2d2e] group cursor-pointer transition-colors"
+                                        onClick={() => handleFileClick(file.path)}
                                     >
-                                        <File className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                        className="text-[#cccccc] hover:text-white"
-                                        title="Unstage Changes"
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Prevent diff open
-                                            // unstage logic here (missing in previous code block but we can add later if needed or just keep current)
-                                            // Wait, I see I removed explicit unstage function call in my previous overwrite? 
-                                            // Ah, previous overwrite didn't include unstageFile function in component body?
-                                            // Let's check original content.
-                                            // Actually I'll just leave the unstage buttom doing nothing for now or wire it if I have `unstageFile`.
-                                            // I don't have `unstageFile` defined in the component right now! 
-                                            // I should probably add `unstageFile` back.
-                                            stageFile(file.path); // Re-staging staged file? No that doesn't make sense.
-                                        }}
-                                    >
-                                        <Undo2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
+                                        <span className={`w-4 text-center text-[10px] font-semibold mr-2 ${getFileStatusColor(file.status)}`}>
+                                            {getFileStatusBadge(file.status)}
+                                        </span>
+                                        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                                            <span className="text-[13px] text-[#cccccc]" title={file.path}>
+                                                {getFileName(file.path)}
+                                            </span>
+                                            {getFilePath(file.path) && (
+                                                <span className="text-[11px] text-[#6e6e6e] truncate">
+                                                    {getFilePath(file.path)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="hidden group-hover:flex items-center gap-1 ml-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenFile(e, file.path);
+                                                }}
+                                                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white transition-colors"
+                                                title="Open File"
+                                            >
+                                                <File className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    unstageFile(file.path);
+                                                }}
+                                                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white transition-colors"
+                                                title="Unstage Changes"
+                                            >
+                                                <Minus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
                 )}
 
+                {/* Unstaged Changes */}
                 {status?.changes && status.changes.length > 0 && (
-                    <div>
+                    <div className="border-b border-[#2d2d2d]">
                         <div
-                            className="flex items-center px-1 py-1 hover:bg-[#2a2d2e] cursor-pointer group mt-2"
+                            className="flex items-center px-2 py-1.5 hover:bg-[#2a2d2e] cursor-pointer group sticky top-0 bg-[#1e1e1e] z-10"
                             onClick={() => setChangesOpen(!changesOpen)}
                         >
-                            {changesOpen ? <ChevronDown className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" /> : <ChevronRight className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" />}
-                            <span className="font-bold text-[11px] uppercase tracking-wide">Changes</span>
-                            <span className="ml-2 px-1.5 rounded-full bg-[#3c3c3c] text-[#cccccc] text-[10px]">{status.changes.length}</span>
-                            <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
+                            {changesOpen ? (
+                                <ChevronDown className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                            ) : (
+                                <ChevronRight className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                            )}
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#cccccc]">
+                                Changes
+                            </span>
+                            <span className="ml-2 px-1.5 py-0.5 text-[9px] rounded-full bg-[#3c3c3c] text-[#cccccc] font-medium">
+                                {status.changes.length}
+                            </span>
+                            <div className="ml-auto flex gap-0.5">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         status.changes.forEach(f => stageFile(f.path));
                                     }}
-                                    className="p-0.5 hover:bg-[#5a5d5e] rounded" title="Stage All Changes"
+                                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#3c3c3c] rounded transition-all"
+                                    title="Stage All Changes"
                                 >
-                                    <Plus className="w-3.5 h-3.5" />
+                                    <Plus className="w-3 h-3" />
                                 </button>
-                                <button className="p-0.5 hover:bg-[#5a5d5e] rounded" title="Discard All Changes">
-                                    <Undo2 className="w-3.5 h-3.5" />
+                                <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#3c3c3c] rounded transition-all"
+                                    title="Discard All Changes"
+                                >
+                                    <Undo2 className="w-3 h-3" />
                                 </button>
                             </div>
                         </div>
 
-                        {changesOpen && status.changes.map((file) => (
-                            <div
-                                key={file.path}
-                                className="flex items-center px-4 py-0.5 hover:bg-[#2a2d2e] group cursor-pointer h-[22px]"
-                                onClick={() => handleFileClick(file.path)}
-                            >
-                                <span className={`w-3.5 text-center text-[10px] mr-1.5 ${getFileStatusColor(file.status)}`}>
-                                    {getFileStatusBadge(file.status)}
-                                </span>
-                                <span className="truncate flex-1 text-[#cccccc] flex items-baseline" title={file.path}>
-                                    <span className="">{file.path.split(/[\\/]/).pop()}</span>
-                                    <span className="text-[#6e6e6e] text-[10px] ml-1.5 truncate">
-                                        {file.path.includes('\\') || file.path.includes('/') ? file.path.substring(0, Math.max(file.path.lastIndexOf('\\'), file.path.lastIndexOf('/'))) : ''}
-                                    </span>
-                                </span>
-                                <div className="hidden group-hover:flex items-center gap-1.5 mr-2">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenFile(e, file.path);
-                                        }}
-                                        className="text-[#cccccc] hover:text-white"
-                                        title="Open File"
+                        {changesOpen && (
+                            <div>
+                                {status.changes.map((file) => (
+                                    <div
+                                        key={file.path}
+                                        className="flex items-center px-7 py-1 hover:bg-[#2a2d2e] group cursor-pointer transition-colors"
+                                        onClick={() => handleFileClick(file.path)}
                                     >
-                                        <File className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button className="text-[#cccccc] hover:text-white" title="Discard Changes">
-                                        <Undo2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            stageFile(file.path);
-                                        }}
-                                        className="text-[#cccccc] hover:text-white"
-                                        title="Stage Changes"
-                                    >
-                                        <Plus className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
+                                        <span className={`w-4 text-center text-[10px] font-semibold mr-2 ${getFileStatusColor(file.status)}`}>
+                                            {getFileStatusBadge(file.status)}
+                                        </span>
+                                        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                                            <span className="text-[13px] text-[#cccccc]" title={file.path}>
+                                                {getFileName(file.path)}
+                                            </span>
+                                            {getFilePath(file.path) && (
+                                                <span className="text-[11px] text-[#6e6e6e] truncate">
+                                                    {getFilePath(file.path)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="hidden group-hover:flex items-center gap-1 ml-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenFile(e, file.path);
+                                                }}
+                                                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white transition-colors"
+                                                title="Open File"
+                                            >
+                                                <File className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white transition-colors"
+                                                title="Discard Changes"
+                                            >
+                                                <Undo2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    stageFile(file.path);
+                                                }}
+                                                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white transition-colors"
+                                                title="Stage Changes"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
+                    </div>
+                )}
+
+                {/* Empty State */}
+                {status && !status.staged?.length && !status.changes?.length && (
+                    <div className="flex flex-col items-center justify-center h-48 text-[#858585] text-center px-6">
+                        <GitCommit className="w-10 h-10 mb-3 opacity-40" />
+                        <p className="text-sm mb-1">No changes</p>
+                        <p className="text-xs opacity-70">Your working tree is clean</p>
                     </div>
                 )}
             </div>
@@ -408,14 +545,21 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
             {/* Git Graph Section */}
             <div className="border-t border-[#2d2d2d] shrink-0">
                 <div
-                    className="flex items-center px-1 py-1 hover:bg-[#2a2d2e] cursor-pointer group bg-[#252526]"
+                    className="flex items-center px-2 py-1.5 hover:bg-[#2a2d2e] cursor-pointer bg-[#252526]"
                     onClick={() => setGraphOpen(!graphOpen)}
                 >
-                    {graphOpen ? <ChevronDown className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" /> : <ChevronRight className="w-4 h-4 mr-1 md:w-3.5 md:h-3.5 text-[#cccccc]" />}
-                    <span className="font-bold text-[11px] uppercase tracking-wide">Graph</span>
+                    {graphOpen ? (
+                        <ChevronDown className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                    ) : (
+                        <ChevronRight className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                    )}
+                    <GitCommit className="w-3.5 h-3.5 mr-1.5 text-[#cccccc]" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#cccccc]">
+                        Commits
+                    </span>
                 </div>
                 {graphOpen && (
-                    <div className="h-64 border-t border-[#2d2d2d]">
+                    <div className="h-80 border-t border-[#2d2d2d] bg-[#1e1e1e]">
                         <GitGraphPanel repoPath={repoPath} />
                     </div>
                 )}

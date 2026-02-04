@@ -1,8 +1,8 @@
 import { useEditor } from "@/context/EditorContext";
-import Editor from "@monaco-editor/react";
+import { DiffEditor } from "@monaco-editor/react";
 import { getLanguageFromFileName } from "../rootfiles/getLanguageFromFileName";
 
-export default function CodeEditorPage() {
+export default function DiffCodeEditorPage() {
   const { selectedFile, fileContent, editorMode } = useEditor();
 
   if (!selectedFile) {
@@ -18,17 +18,17 @@ export default function CodeEditorPage() {
 
   const language = getLanguageFromFileName(selectedFile);
   const fileName = selectedFile.split(/[\\/]/).pop();
-
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e]">
       <div className="h-9 flex items-center bg-[#252526] px-3">
-        <div className="text-sm text-[#cccccc]">{fileName}</div>
+        <div className="text-sm text-[#cccccc]">{fileName} Working tree M</div>
       </div>
 
-      {editorMode === "edit" && (
-        <Editor
+      {editorMode === "diff" && (
+        <DiffEditor
+          original={useEditor().diffOriginal}
+          modified={fileContent}
           language={language}
-          value={fileContent}
           theme="vs-dark"
           className="flex-1"
           options={{
@@ -40,16 +40,8 @@ export default function CodeEditorPage() {
               verticalScrollbarSize: 10,
               horizontalScrollbarSize: 10,
             },
-            cursorStyle: "line",
-            cursorBlinking: "blink",
-            scrollBeyondLastLine: false,
-            smoothScrolling: false,
-            padding: { top: 10, bottom: 10 },
-            tabSize: 2,
-            insertSpaces: true,
-            automaticLayout: true,
-            renderWhitespace: "none",
-            wordWrap: "off",
+            readOnly: true, // Typically diff view is read-only or focused on edit side, let's keep it safe for now
+            renderSideBySide: true,
           }}
         />
       )}

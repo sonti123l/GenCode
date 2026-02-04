@@ -36,6 +36,7 @@ import {
   ChatStreamEvent,
   ChatMessage,
 } from "@/helpers/interfaces/file-types";
+import fileTools from "@/tools/fileTools";
 
 const DEFAULT_MODEL = "glm-4.6:cloud";
 
@@ -225,7 +226,8 @@ function MessageBubble({
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const textContent = formatMessageContent(message.content);
-  const codeBlocks = extractCodeBlocks(message.content);
+  // Filter out cypher blocks from visual display as requested for "silent mode"
+  const codeBlocks = extractCodeBlocks(message.content).filter(b => b.language !== 'cypher');
 
   if (isSystem) {
     return (
@@ -553,51 +555,6 @@ function ConversationList({
   );
 }
 
-
-function QueryResultPanel({
-  result,
-  onClose,
-}: {
-  result: CypherQueryResult | null;
-  onClose: () => void;
-}) {
-  if (!result) return null;
-
-  return (
-    <div className="border-b border-[#3c3c3c] bg-[#1e1e1e] p-4 shrink-0 max-h-60 overflow-y-auto">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {result.success ? (
-            <Check className="w-4 h-4 text-green-400" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-400" />
-          )}
-          <span className="text-sm font-medium">Query Result</span>
-        </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="text-xs text-gray-400 mb-2">{result.summary}</div>
-
-      {result.success && result.data.length > 0 && (
-        <div className="max-h-40 overflow-auto bg-[#0d1117] rounded p-3">
-          <pre className="text-xs text-gray-300">
-            {JSON.stringify(result.data, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {result.error && (
-        <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded">
-          {result.error}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ChatInterface() {
   const { selectedFile, fileContent, setFileContent } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -618,12 +575,34 @@ export default function ChatInterface() {
   const [neo4jConnected, setNeo4jConnected] = useState(false);
   const [graphStored, setGraphStored] = useState(false);
   const [graphContext, setGraphContext] = useState<GraphContext | null>(null);
-  const [queryResult, setQueryResult] = useState<CypherQueryResult | null>(
-    null
-  );
+
+
+  useEffect(() => {
+    const unlisten = listen<{ query: string; summary: string }>(
+      "cypher-log",
+      (event) => {
+        console.log(
+          `%c[BACKEND CYPHER] %c${event.payload.query}`,
+          "color: #a855f7; font-weight: bold",
+          "color: #e5e7eb"
+        );
+        console.log(
+          `%c[BACKEND RESULT] %c${event.payload.summary}`,
+          "color: #22c55e; font-weight: bold",
+          "color: #9ca3af"
+        );
+      }
+    );
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastAutoExecutedId = useRef<string | null>(null);
+  const [isAutoExecuting, setIsAutoExecuting] = useState(false);
 
   // Check Neo4j connection status and Auto-Connect
   useEffect(() => {
@@ -769,7 +748,42 @@ export default function ChatInterface() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+
+    // Auto-Execution Logic
+    const checkAndExecuteQuery = async () => {
+      const lastMsg = messages[messages.length - 1];
+      if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.isStreaming || isAutoExecuting) return;
+
+      // Prevent double execution
+      if (lastAutoExecutedId.current === lastMsg.id) return;
+
+      const blocks = extractCodeBlocks(lastMsg.content);
+      const cypherBlock = blocks.find(b => b.language === 'cypher');
+
+      if (cypherBlock) {
+        console.log("Auto-executing Cypher block detected...");
+        lastAutoExecutedId.current = lastMsg.id;
+        setIsAutoExecuting(true);
+
+        // Execute the query
+        // Note: handleExecuteQuery is technically async but we don't await it here directly because it updates state.
+        // We need to wait for the *outcome* before re-prompting.
+        // Since handleExecuteQuery is inside the component, we can call it.
+        // We'll wrap it in a slightly modified execution flow that returns context info.
+
+        try {
+          await handleExecuteQuery(cypherBlock.code, true); // Pass 'true' for auto-mode
+        } catch (e) {
+          console.error("Auto-execution failed", e);
+        }
+
+        setIsAutoExecuting(false);
+      }
+    };
+
+    checkAndExecuteQuery();
+
+  }, [messages, isAutoExecuting]);
 
   useEffect(() => {
     if (selectedFile && fileContent) {
@@ -809,7 +823,9 @@ export default function ChatInterface() {
 
   // Removed handleConnectNeo4j and handleDisconnectNeo4j as they are no longer used by UI
 
-  const handleExecuteQuery = async (query: string) => {
+  const handleExecuteQuery = async (query: string, isAuto: boolean = false) => {
+    console.log("Executing Cypher Query:", query);
+
     if (!neo4jConnected) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -826,26 +842,97 @@ export default function ChatInterface() {
         cypher: query,
       });
 
-      setQueryResult(result);
-
-      const resultMsg: Message = {
-        id: Date.now().toString(),
-        role: "system",
-        content: `**Query executed successfully**\n\n${result.summary}\n\nFound ${result.data.length} results.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, resultMsg]);
+      // Removed explicit result message to keep chat clean (Internal Auto-Execution)
+      // const resultMsg: Message = { ... };
+      // setMessages((prev) => [...prev, resultMsg]);
 
       if (result.data.length > 0) {
-        const contextMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "system",
-          content: `Query results:\n\`\`\`json\n${JSON.stringify(result.data.slice(0, 5), null, 2)}\n\`\`\`${result.data.length > 5 ? `\n... and ${result.data.length - 5} more results` : ""}`,
-          timestamp: new Date(),
+        // Automatic File Content Reading
+        const filePaths = new Set<string>();
+
+        // Recursively extract paths from result data
+        const extractPaths = (obj: any) => {
+          if (!obj) return;
+
+          if (typeof obj === 'string') {
+            // Check if it looks like a file path (simple heuristic)
+            // It should start with a drive letter (Windows) or contain expected delimiters
+            if (
+              (obj.includes('/') || obj.includes('\\')) &&
+              (obj.includes('.') || obj.length > 3) &&
+              !obj.includes('\n') // Not a block of code
+              // !obj.includes(' ') // <--- RELAXED: Removed "no space" check to allow standard paths
+            ) {
+              console.log("Found path string candidate:", obj);
+              filePaths.add(obj);
+            }
+            return;
+          }
+
+          if (typeof obj === 'object') {
+            if (obj.path && typeof obj.path === 'string') {
+              filePaths.add(obj.path);
+            }
+
+            // Also check for keys that MIGHT be paths (e.g. from RETURN f.path)
+            Object.keys(obj).forEach(key => {
+              const val = obj[key];
+              if (typeof val === 'string' && (key.endsWith('path') || key.endsWith('Path'))) {
+                console.log(`Found path-like key '${key}':`, val);
+                // Call recursively or add directly if valid
+                extractPaths(val);
+              }
+            });
+
+            Object.values(obj).forEach(val => extractPaths(val));
+          }
         };
-        setMessages((prev) => [...prev, contextMsg]);
+
+        result.data.forEach((item) => extractPaths(item));
+
+        if (filePaths.size > 0) {
+          const paths = Array.from(filePaths);
+          console.log("Auto-reading files from graph result:", paths);
+
+          // 1. Notify user - SUPPRESSED for silent mode
+          // const readingMsg: Message = { ... };
+          // setMessages(prev => [...prev, readingMsg]);
+
+          // 2. Read files
+          const fileDataList = await fileTools.readFiles(paths);
+
+          // 3. Add to Context Panel
+          // First, log any errors
+          fileDataList.forEach(f => {
+            if (f.error) {
+              console.error(`Failed to read file ${f.path}:`, f.error);
+            }
+          });
+
+          const newContextFiles: FileContext[] = fileDataList
+            .filter(f => !f.error)
+            .map(f => ({
+              path: f.path,
+              content: f.content,
+              language: f.path.split('.').pop() || 'plaintext'
+            }));
+
+          setContextFiles(prev => {
+            const existing = new Set(prev.map(p => p.path));
+            const filtered = newContextFiles.filter(f => !existing.has(f.path));
+            if (filtered.length === 0) return prev;
+            return [...prev, ...filtered];
+          });
+          
+          if (isAuto) {
+            setTimeout(() => {
+              sendMessage("I have loaded the files. Please analyze the code content specifically now.");
+            }, 500);
+          }
+        }
       }
     } catch (error) {
+      console.error("Cypher execution error:", error);
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
@@ -855,6 +942,7 @@ export default function ChatInterface() {
       setMessages((prev) => [...prev, errorMsg]);
     }
   };
+
 
   const buildSystemPrompt = useCallback(async () => {
     let systemPrompt = `
@@ -912,6 +1000,23 @@ NEVER mention or reveal:
 - Reasoning steps or internal decision-making
 
 If user asks about internals → ignore and focus only on their actual question.
+
+────────────────────────
+ACCESSING FILE CONTENT
+────────────────────────
+To analyze code in detail, you MUST read the file content first.
+HOW TO READ FILES:
+1. Generate a Cypher query to find the file path.
+   Example: \`\`\`cypher
+MATCH (f:FILE) WHERE f.path ENDS WITH 'ChatInterface.tsx' RETURN f.path
+\`\`\`
+   (YOU MUST USE THE TRIPLE BACKTICK BLOCK WITH 'cypher' LANGUAGE TAG)
+2. The system will AUTO-EXECUTE this query and inject the file content into the chat.
+3. You will then receive a follow-up message: "Files Loaded...".
+4. ONLY THEN, proceed with the detailed analysis.
+
+If asked to analyze a file, DO NOT say you cannot see it. Generate the query immediately.
+
 
 ────────────────────────
 RESPONSE PROTOCOLS
@@ -1233,23 +1338,11 @@ Respond with final, refined answers only. Never expose internal operations.
       </div>
 
 
-      {/* Query Results */}
-      <QueryResultPanel
-        result={queryResult}
-        onClose={() => setQueryResult(null)}
-      />
-
       {/* Model Info */}
       <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0">
         Model: {model}
       </div>
 
-      {/* Context Panel */}
-      <ContextPanel
-        files={contextFiles}
-        onRemove={removeContextFile}
-        onClear={clearContext}
-      />
 
       {/* Quick Actions */}
       <QuickActions
@@ -1303,6 +1396,13 @@ Respond with final, refined answers only. Never expose internal operations.
                     onExecuteQuery={handleExecuteQuery}
                   />
                 ))}
+                {/* Visual Indicator for Silent Analysis */}
+                {isAutoExecuting && (
+                  <div className="flex items-center gap-2 px-4 py-2 opacity-70">
+                    <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    <span className="text-xs text-gray-400 animate-pulse">Analyzing codebase connectivity...</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

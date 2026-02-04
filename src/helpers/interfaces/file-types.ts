@@ -58,3 +58,10 @@ export interface ChatStreamEvent {
   content: string;
   done: boolean;
 }
+
+export interface FileReadProgress {
+  current: number;
+  total: number;
+  currentFile: string;
+  isReading: boolean;
+}

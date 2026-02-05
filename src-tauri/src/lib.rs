@@ -1347,6 +1347,80 @@ fn close_terminal(
     Ok(())
 }
 
+// Add these command handlers to your existing list:
+#[tauri::command]
+fn get_directory_tree(path: String, depth: u32) -> Result<String, String> {
+    fn build_tree(dir: &Path, current_depth: u32, max_depth: u32, prefix: &str) -> Result<String, String> {
+        if current_depth > max_depth {
+            return Ok(format!("{}...\n", prefix));
+        }
+        
+        let mut result = String::new();
+        let entries = std_fs::read_dir(dir).map_err(|e| e.to_string())?;
+        
+        for entry in entries {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            
+            if name.starts_with('.') || name == "node_modules" || name == "target" {
+                continue;
+            }
+            
+            let is_dir = path.is_dir();
+            let icon = if is_dir { "📁" } else { "📄" };
+            result.push_str(&format!("{}{} {}\n", prefix, icon, name));
+            
+            if is_dir {
+                let new_prefix = format!("{}  ", prefix);
+                result.push_str(&build_tree(&path, current_depth + 1, max_depth, &new_prefix)?);
+            }
+        }
+        
+        Ok(result)
+    }
+    
+    build_tree(Path::new(&path), 0, depth, "")
+}
+
+#[tauri::command]
+async fn search_code(
+    pattern: String,
+    paths: Vec<String>,
+    options: HashMap<String, bool>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut results = Vec::new();
+    let case_sensitive = options.get("case_sensitive").copied().unwrap_or(false);
+    let regex = options.get("regex").copied().unwrap_or(false);
+    
+    for path in paths {
+        if let Ok(content) = std_fs::read_to_string(&path) {
+            let lines: Vec<&str> = content.lines().collect();
+            for (i, line) in lines.iter().enumerate() {
+                let matches = if regex {
+                    // Use regex crate in production
+                    line.contains(&pattern)
+                } else if case_sensitive {
+                    line.contains(&pattern)
+                } else {
+                    line.to_lowercase().contains(&pattern.to_lowercase())
+                };
+                
+                if matches {
+                    results.push(serde_json::json!({
+                        "path": path,
+                        "line": i + 1,
+                        "content": line,
+                        "context": lines[i.saturating_sub(2)..(i + 3).min(lines.len())].join("\n")
+                    }));
+                }
+            }
+        }
+    }
+    
+    Ok(results)
+}
+
 // ============================================================================
 // MAIN RUN FUNCTION
 // ============================================================================
@@ -1404,6 +1478,8 @@ pub fn run() {
             git_commit,
             git_push,
             git_pull,
+            get_directory_tree,
+            search_code
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -65,3 +65,33 @@ export interface FileReadProgress {
   currentFile: string;
   isReading: boolean;
 }
+
+export interface EditOperation {
+  type: 'search_replace' | 'create' | 'delete' | 'insert' | 'patch';
+  path: string;
+  search?: string;
+  replace?: string;
+  content?: string;
+  line?: number;
+  patch?: string;
+  description?: string;
+}
+
+export interface EditResult {
+  success: boolean;
+  path: string;
+  error?: string;
+  diff?: string;
+  oldContent?: string;
+  newContent?: string;
+}
+
+export interface FileSearchResult {
+  path: string;
+  matches: Array<{
+    line: number;
+    column: number;
+    content: string;
+    context: string[];
+  }>;
+}

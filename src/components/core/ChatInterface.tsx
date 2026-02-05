@@ -1,3 +1,4 @@
+// src/components/chat/ChatInterface.tsx
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useEditor } from "@/context/EditorContext";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,6 +29,15 @@ import {
   Database,
   PlayCircle,
   CheckCircle,
+  Wand2,
+  GitPullRequest,
+  Shield,
+  RotateCcw,
+  FilePlus,
+  FileX,
+  Search,
+  CheckSquare,
+  Edit3
 } from "lucide-react";
 import {
   CodeBlock,
@@ -36,7 +46,7 @@ import {
   ChatStreamEvent,
   ChatMessage,
 } from "@/helpers/interfaces/file-types";
-import fileTools from "@/tools/fileTools";
+import fileTools, { generateDiff } from "@/tools/fileTools";
 
 const DEFAULT_MODEL = "glm-4.6:cloud";
 
@@ -81,10 +91,22 @@ interface CypherQueryResult {
   summary: string;
 }
 
-interface Neo4jConfig {
-  uri: string;
-  user: string;
-  password: string;
+interface PendingEdit {
+  id: string;
+  path: string;
+  original: string;
+  modified: string;
+  description: string;
+  applied: boolean;
+  type: 'search_replace' | 'create' | 'delete' | 'insert';
+}
+
+interface AgentAction {
+  id: string;
+  type: 'search' | 'read' | 'edit' | 'write' | 'create' | 'rename' | 'delete';
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  description: string;
+  result?: any;
 }
 
 function extractCodeBlocks(content: string): CodeBlock[] {
@@ -112,6 +134,49 @@ function formatMessageContent(content: string): string {
   return content
     .replace(/```(\w+)?\s*(?:\[([^\]]+)\])?\n[\s\S]*?```/g, "")
     .trim();
+}
+
+// Parse agent edit blocks from AI response
+function parseEditBlocks(content: string): PendingEdit[] {
+  const edits: PendingEdit[] = [];
+  
+  // Parse Search/Replace blocks (Aider format)
+  const searchReplaceRegex = /<<<<<<< SEARCH\n([\s\S]*?)=======\n([\s\S]*?)>>>>>>> REPLACE(?:\s+file:\s*([^\n]+))?/g;
+  let match;
+  
+  while ((match = searchReplaceRegex.exec(content)) !== null) {
+    const search = match[1].trim();
+    const replace = match[2].trim();
+    const filePath = match[3]?.trim();
+    
+    if (filePath) {
+      edits.push({
+        id: `edit-${Date.now()}-${Math.random()}`,
+        path: filePath,
+        original: search,
+        modified: replace,
+        description: 'Search/Replace edit',
+        applied: false,
+        type: 'search_replace'
+      });
+    }
+  }
+  
+  // Parse Create file blocks
+  const createRegex = /```\w*\s*\[([^\]]+\.(ts|tsx|js|jsx|py|rs|go|java|cpp|c|h|html|css|json|md))\]\s*create\n([\s\S]*?)```/g;
+  while ((match = createRegex.exec(content)) !== null) {
+    edits.push({
+      id: `edit-${Date.now()}-${Math.random()}`,
+      path: match[1],
+      original: '',
+      modified: match[3].trim(),
+      description: 'Create new file',
+      applied: false,
+      type: 'create'
+    });
+  }
+  
+  return edits;
 }
 
 function CodeBlockDisplay({
@@ -554,7 +619,6 @@ function ConversationList({
   );
 }
 
-// NEW: File Loading Progress Component
 function FileLoadingProgress({
   current,
   total,
@@ -589,6 +653,193 @@ function FileLoadingProgress({
   );
 }
 
+// New: Agent Actions Panel
+function AgentActionsPanel({ actions }: { actions: AgentAction[] }) {
+  if (actions.length === 0) return null;
+  
+  return (
+    <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+      <h4 className="text-sm font-medium text-blue-400 mb-2">Agent Actions</h4>
+      <div className="space-y-1">
+        {actions.slice(-5).map((action, idx) => (
+          <div key={idx} className="flex items-center gap-2 text-xs">
+            {action.status === 'in-progress' && (
+              <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+            )}
+            {action.status === 'completed' && (
+              <Check className="w-3 h-3 text-green-400" />
+            )}
+            {action.status === 'failed' && (
+              <AlertCircle className="w-3 h-3 text-red-400" />
+            )}
+            {action.status === 'pending' && (
+              <div className="w-3 h-3 rounded-full bg-gray-600" />
+            )}
+            <span className={`
+              ${action.status === 'completed' ? 'text-green-400' : ''}
+              ${action.status === 'failed' ? 'text-red-400' : ''}
+              ${action.status === 'in-progress' ? 'text-blue-400' : ''}
+              ${action.status === 'pending' ? 'text-gray-500' : ''}
+            `}>
+              {action.description}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// New: Pending Edits Panel
+function PendingEditsPanel({ 
+  edits, 
+  onApply, 
+  onReject, 
+  onViewDiff,
+  onApplyAll,
+  onRejectAll
+}: { 
+  edits: PendingEdit[];
+  onApply: (id: string) => void;
+  onReject: (id: string) => void;
+  onViewDiff: (edit: PendingEdit) => void;
+  onApplyAll: () => void;
+  onRejectAll: () => void;
+}) {
+  if (edits.length === 0) return null;
+
+  const pendingCount = edits.filter(e => !e.applied).length;
+  if (pendingCount === 0) return null;
+
+  return (
+    <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium text-yellow-400">
+          Pending Changes ({pendingCount})
+        </h4>
+        <div className="flex gap-2">
+          <button 
+            onClick={onApplyAll}
+            className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-white"
+          >
+            Apply All
+          </button>
+          <button 
+            onClick={onRejectAll}
+            className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-white"
+          >
+            Reject All
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2 max-h-40 overflow-y-auto">
+        {edits.filter(e => !e.applied).map((edit) => (
+          <div key={edit.id} className="flex items-center justify-between p-2 bg-[#2d2d2d] rounded text-xs">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {edit.type === 'create' ? (
+                <FilePlus className="w-3 h-3 text-green-400 shrink-0" />
+              ) : edit.type === 'delete' ? (
+                <FileX className="w-3 h-3 text-red-400 shrink-0" />
+              ) : (
+                <Edit3 className="w-3 h-3 text-blue-400 shrink-0" />
+              )}
+              <span className="text-gray-300 truncate">{edit.path.split(/[\\/]/).pop()}</span>
+              <span className="text-gray-500 truncate">{edit.description}</span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => onViewDiff(edit)}
+                className="p-1 hover:bg-white/10 rounded text-gray-400"
+                title="View diff"
+              >
+                <Eye className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => onApply(edit.id)}
+                className="p-1 hover:bg-green-500/20 rounded text-green-400"
+                title="Apply"
+              >
+                <Check className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => onReject(edit.id)}
+                className="p-1 hover:bg-red-500/20 rounded text-red-400"
+                title="Reject"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// New: Diff Modal
+function DiffModal({ 
+  isOpen, 
+  onClose, 
+  path, 
+  diff 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  path: string; 
+  diff: string; 
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#3c3c3c]">
+          <h3 className="text-white font-medium">Changes to {path.split(/[\\/]/).pop()}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <pre className="text-sm font-mono whitespace-pre-wrap">
+            {diff.split('\n').map((line, idx) => (
+              <div key={idx} className={`
+                ${line.startsWith('+') ? 'text-green-400 bg-green-400/10' : ''}
+                ${line.startsWith('-') ? 'text-red-400 bg-red-400/10' : ''}
+                ${line.startsWith('@@') ? 'text-blue-400 bg-blue-400/10' : ''}
+              `}>
+                {line}
+              </div>
+            ))}
+          </pre>
+        </div>
+        <div className="p-4 border-t border-[#3c3c3c] flex justify-end gap-2">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-300 hover:bg-white/10 rounded"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// New: Agent Mode Badge
+function AgentModeBadge({ mode }: { mode: 'chat' | 'agent' | 'ask' }) {
+  const colors = {
+    chat: 'bg-gray-600',
+    agent: 'bg-purple-600',
+    ask: 'bg-blue-600'
+  };
+
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded text-white ${colors[mode]}`}>
+      {mode.toUpperCase()}
+    </span>
+  );
+}
+
 export default function ChatInterface() {
   const { selectedFile, fileContent, setFileContent } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -603,19 +854,28 @@ export default function ChatInterface() {
   const [conversations, setConversations] = useState<
     { id: string; title: string; timestamp: Date; messages: Message[] }[]
   >([]);
-  const [currentConversationId, setCurrentConversationId] = useState<
-    string | null
-  >(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [neo4jConnected, setNeo4jConnected] = useState(false);
   const [graphStored, setGraphStored] = useState(false);
   const [graphContext, setGraphContext] = useState<GraphContext | null>(null);
-  
-  // NEW: File loading state
   const [fileLoadingProgress, setFileLoadingProgress] = useState<{
     current: number;
     total: number;
     currentFile: string;
   } | null>(null);
+  
+  // NEW: Agent mode state
+  const [agentMode, setAgentMode] = useState<'chat' | 'agent' | 'ask'>('chat');
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const [agentActions, setAgentActions] = useState<AgentAction[]>([]);
+  const [autoApplyEdits, setAutoApplyEdits] = useState(false);
+  const [showDiffModal, setShowDiffModal] = useState(false);
+  const [currentDiff, setCurrentDiff] = useState<{path: string; diff: string} | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastAutoExecutedId = useRef<string | null>(null);
+  const [isAutoExecuting, setIsAutoExecuting] = useState(false);
 
   useEffect(() => {
     const unlisten = listen<{ query: string; summary: string }>(
@@ -639,12 +899,7 @@ export default function ChatInterface() {
     };
   }, []);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const lastAutoExecutedId = useRef<string | null>(null);
-  const [isAutoExecuting, setIsAutoExecuting] = useState(false);
-
-  // Check Neo4j connection status and Auto-Connect
+  // Check Neo4j connection
   useEffect(() => {
     const connectAndCheckNeo4j = async () => {
       try {
@@ -678,7 +933,7 @@ export default function ChatInterface() {
     return () => clearInterval(interval);
   }, []);
 
-  // Automatically store graph in Neo4j when connected
+  // Store graph automatically
   useEffect(() => {
     const storeGraphAutomatically = async () => {
       if (!neo4jConnected) {
@@ -694,7 +949,6 @@ export default function ChatInterface() {
         }
 
         const rawGraph = JSON.parse(savedGraph);
-
         const graph: CodeGraph = {
           nodes: rawGraph.nodes.map((node: any) => ({
             id: String(node.id),
@@ -721,12 +975,8 @@ export default function ChatInterface() {
         };
 
         await invoke("store_graph_in_neo4j", { graph });
-
-        const context = await invoke<GraphContext>("generate_graph_context", {
-          graph,
-        });
+        const context = await invoke<GraphContext>("generate_graph_context", { graph });
         setGraphContext(context);
-
         setGraphStored(true);
         console.log("Graph automatically stored/updated in Neo4j");
 
@@ -782,10 +1032,10 @@ export default function ChatInterface() {
     };
   }, []);
 
+  // Auto-execute Cypher queries
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-    // Auto-Execution Logic
     const checkAndExecuteQuery = async () => {
       const lastMsg = messages[messages.length - 1];
       if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.isStreaming || isAutoExecuting) return;
@@ -808,11 +1058,19 @@ export default function ChatInterface() {
 
         setIsAutoExecuting(false);
       }
+
+      // Parse and queue edit blocks
+      const edits = parseEditBlocks(lastMsg.content);
+      if (edits.length > 0) {
+        setPendingEdits(prev => [...prev, ...edits]);
+        if (autoApplyEdits) {
+          applyPendingEdits(edits.map(e => e.id));
+        }
+      }
     };
 
     checkAndExecuteQuery();
-
-  }, [messages, isAutoExecuting]);
+  }, [messages, isAutoExecuting, autoApplyEdits]);
 
   useEffect(() => {
     if (selectedFile && fileContent) {
@@ -850,6 +1108,55 @@ export default function ChatInterface() {
     }
   }, [selectedFile, fileContent]);
 
+  // Apply pending edits
+  const applyPendingEdits = async (editIds?: string[]) => {
+    const toApply = editIds 
+      ? pendingEdits.filter(e => editIds.includes(e.id) && !e.applied)
+      : pendingEdits.filter(e => !e.applied);
+
+    for (const edit of toApply) {
+      try {
+        let result;
+        if (edit.type === 'search_replace') {
+          result = await fileTools.applySearchReplace(edit.path, edit.original, edit.modified, { fuzzy: true });
+        } else if (edit.type === 'create') {
+          result = await fileTools.createFile(edit.path, edit.modified);
+        } else if (edit.type === 'delete') {
+          result = await fileTools.deleteFile(edit.path);
+        }
+
+        if (result?.success) {
+          setPendingEdits(prev => prev.map(e => e.id === edit.id ? { ...e, applied: true } : e));
+          
+          // Update context if file modified
+          if (result.newContent) {
+            setContextFiles(prev => {
+              const exists = prev.find(f => f.path === edit.path);
+              const ext = edit.path.split('.').pop() || 'plaintext';
+              const newContext: FileContext = {
+                path: edit.path,
+                content: result.newContent,
+                language: ext
+              };
+              
+              if (exists) {
+                return prev.map(f => f.path === edit.path ? newContext : f);
+              }
+              return [...prev, newContext];
+            });
+
+            if (selectedFile === edit.path) {
+              setFileContent(result.newContent);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to apply edit:", error);
+      }
+    }
+  };
+
+  // Execute Cypher query and load files
   const handleExecuteQuery = async (query: string, isAuto: boolean = false) => {
     console.log("Executing Cypher Query:", query);
 
@@ -874,30 +1181,22 @@ export default function ChatInterface() {
 
         const extractPaths = (obj: any) => {
           if (!obj) return;
-
           if (typeof obj === 'string') {
-            if (
-              (obj.includes('/') || obj.includes('\\')) &&
-              (obj.includes('.') || obj.length > 3) &&
-              !obj.includes('\n')
-            ) {
+            if ((obj.includes('/') || obj.includes('\\')) && (obj.includes('.') || obj.length > 3) && !obj.includes('\n')) {
               filePaths.add(obj);
             }
             return;
           }
-
           if (typeof obj === 'object') {
             if (obj.path && typeof obj.path === 'string') {
               filePaths.add(obj.path);
             }
-
             Object.keys(obj).forEach(key => {
               const val = obj[key];
               if (typeof val === 'string' && (key.endsWith('path') || key.endsWith('Path'))) {
                 extractPaths(val);
               }
             });
-
             Object.values(obj).forEach(val => extractPaths(val));
           }
         };
@@ -908,7 +1207,6 @@ export default function ChatInterface() {
           const paths = Array.from(filePaths);
           console.log("Auto-reading files from graph result:", paths);
 
-          // NEW: Show progress as files are being read
           const fileDataList = await fileTools.readFiles(paths, (current, total, currentPath) => {
             setFileLoadingProgress({
               current,
@@ -917,14 +1215,7 @@ export default function ChatInterface() {
             });
           });
 
-          // Clear progress indicator
           setFileLoadingProgress(null);
-
-          fileDataList.forEach(f => {
-            if (f.error) {
-              console.error(`Failed to read file ${f.path}:`, f.error);
-            }
-          });
 
           const newContextFiles: FileContext[] = fileDataList
             .filter(f => !f.error)
@@ -942,8 +1233,6 @@ export default function ChatInterface() {
               const updated = [...prev, ...filtered];
               
               if (isAuto) {
-                console.log(`Loaded ${filtered.length} files, sending for analysis`);
-                
                 const recentUserMessages = messages
                   .filter(m => m.role === 'user')
                   .slice(-2);
@@ -977,10 +1266,11 @@ export default function ChatInterface() {
     }
   };
 
+  // Enhanced system prompt with agent capabilities
   const buildSystemPrompt = useCallback(async (explicitContext?: FileContext[]) => {
     const activeContext = explicitContext || contextFiles;
     
-    let systemPrompt = `You are an AI Coding Assistant. You have full access to the project's codebase through a graph database.
+    let systemPrompt = `You are an AI Coding Assistant with ${agentMode === 'agent' ? 'FULL AGENT MODE - You can directly modify code' : 'chat mode'}.
 
 CRITICAL BEHAVIOR:
 - When user asks to analyze files, YOU generate Cypher queries to find them
@@ -989,11 +1279,23 @@ CRITICAL BEHAVIOR:
 - NEVER ask user to provide file contents
 - NEVER say you can't see files - they will be loaded automatically
 
-HOW FILE ACCESS WORKS:
-1. User: "analyze MainLayout file"
-2. You: Generate \`\`\`cypher query to find file
-3. System: Executes query, reads files, adds to context
-4. You: Receive files and provide FULL analysis
+${agentMode === 'agent' ? `
+AGENT EDITING CAPABILITIES:
+You can modify files using these formats:
+
+1. SEARCH/REPLACE (for modifications):
+file: src/components/Button.tsx
+const Button = () => {
+
+2. CREATE NEW FILE:
+\`\`\`typescript[src/utils/helpers.ts] create
+export function helper() { }
+\`\`\`
+
+3. DELETE FILE (mention it and user will confirm)
+
+Always use SEARCH/REPLACE for modifications, never return full files.
+` : ''}
 
 RESPONSE RULES:
 - Be direct and professional
@@ -1052,7 +1354,7 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
     }
 
     return systemPrompt;
-  }, [contextFiles, graphContext, neo4jConnected, graphStored]);
+  }, [contextFiles, graphContext, neo4jConnected, graphStored, agentMode]);
 
   const sendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || isLoading) return;
@@ -1264,6 +1566,7 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
       ]);
     }
     setMessages([]);
+    setPendingEdits([]);
     setCurrentConversationId(Date.now().toString());
   };
 
@@ -1285,15 +1588,33 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
 
   const handleClearChat = () => {
     setMessages([]);
+    setPendingEdits([]);
+  };
+
+  // Generate diff for pending edit
+  const generateDiffForEdit = async (edit: PendingEdit): Promise<string> => {
+    if (edit.type === 'create') {
+      return `--- /dev/null\n+++ ${edit.path}\n@@ -0,0 +1,${edit.modified.split('\n').length} @@\n${edit.modified.split('\n').map(l => '+' + l).join('\n')}`;
+    }
+    
+    try {
+      const fileData = await fileTools.readFile(edit.path);
+      const oldContent = fileData.content || '';
+      return generateDiff(edit.path, oldContent, oldContent.replace(edit.original, edit.modified));
+    } catch {
+      return `--- ${edit.path}\n+++ ${edit.path}\n@@ -1,1 +1,1 @@\n-${edit.original}\n+${edit.modified}`;
+    }
   };
 
   return (
     <div className="h-full max-h-full flex flex-col bg-[#1e1e1e] overflow-hidden isolate">
+      {/* Header with Mode Selector */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#252526] shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-purple-400" />
             <span className="font-medium text-white">AI Assistant</span>
+            <AgentModeBadge mode={agentMode} />
             <span
               className={`w-2 h-2 rounded-full ${connectionStatus === "connected"
                 ? "bg-green-500"
@@ -1312,6 +1633,23 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Agent Mode Toggle */}
+          <div className="flex items-center gap-1 bg-[#1e1e1e] rounded-lg p-1 border border-[#3c3c3c]">
+            {(['chat', 'agent', 'ask'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setAgentMode(mode)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                  agentMode === mode 
+                    ? mode === 'agent' ? 'bg-purple-600 text-white' : 'bg-[#3c3c3c] text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
+          </div>
+          
           <ConversationList
             conversations={conversations}
             currentId={currentConversationId}
@@ -1336,8 +1674,22 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
         </div>
       </div>
 
-      <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0">
-        Model: {model}
+      <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0 flex items-center justify-between">
+        <span>Model: {model}</span>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoApplyEdits}
+              onChange={(e) => setAutoApplyEdits(e.target.checked)}
+              className="w-3 h-3 rounded border-gray-600"
+            />
+            <span className={autoApplyEdits ? 'text-green-400' : ''}>Auto-apply edits</span>
+          </label>
+          {neo4jConnected && graphStored && (
+            <span className="text-green-400">• Graph ready</span>
+          )}
+        </div>
       </div>
 
       <QuickActions
@@ -1354,6 +1706,11 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
                 <h3 className="text-lg font-medium text-gray-300 mb-2">
                   AI Coding Assistant
                 </h3>
+                {agentMode === 'agent' && (
+                  <p className="text-sm text-purple-400 mb-4">
+                    Agent Mode: I can autonomously modify your code
+                  </p>
+                )}
                 {connectionStatus === "disconnected" && (
                   <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm max-w-md">
                     <p className="font-medium">Ollama not connected</p>
@@ -1378,6 +1735,19 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
               </div>
             ) : (
               <div className="flex flex-col">
+                <AgentActionsPanel actions={agentActions} />
+                <PendingEditsPanel 
+                  edits={pendingEdits} 
+                  onApply={(id) => applyPendingEdits([id])}
+                  onReject={(id) => setPendingEdits(prev => prev.filter(e => e.id !== id))}
+                  onViewDiff={async (edit) => {
+                    const diff = await generateDiffForEdit(edit);
+                    setCurrentDiff({ path: edit.path, diff });
+                    setShowDiffModal(true);
+                  }}
+                  onApplyAll={() => applyPendingEdits()}
+                  onRejectAll={() => setPendingEdits([])}
+                />
                 {messages.map((message) => (
                   <MessageBubble
                     key={message.id}
@@ -1418,9 +1788,9 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
               placeholder={
                 connectionStatus === "disconnected"
                   ? "Ollama not connected..."
-                  : neo4jConnected && graphStored
-                    ? "Ask about your code..."
-                    : "Ask a question..."
+                  : agentMode === 'agent'
+                    ? "Tell me what to build or modify..."
+                    : "Ask about your code..."
               }
               className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"
               rows={2}
@@ -1433,6 +1803,8 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
+              ) : agentMode === 'agent' ? (
+                <Wand2 className="w-4 h-4" />
               ) : (
                 <Send className="w-4 h-4" />
               )}
@@ -1440,15 +1812,30 @@ ${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited
           </div>
         </div>
         <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-          <span>Press Enter to send, Shift+Enter for new line</span>
+          <span>
+            {agentMode === 'agent' 
+              ? "Agent Mode: Enter to plan and execute changes"
+              : "Press Enter to send, Shift+Enter for new line"
+            }
+          </span>
           <div className="flex items-center gap-2">
             <span>{contextFiles.length} files in context</span>
-            {neo4jConnected && graphStored && (
-              <span className="text-green-400">• Graph ready</span>
+            {pendingEdits.filter(e => !e.applied).length > 0 && (
+              <span className="text-yellow-400">
+                • {pendingEdits.filter(e => !e.applied).length} pending edits
+              </span>
             )}
           </div>
         </div>
       </div>
+
+      {/* Diff Modal */}
+      <DiffModal
+        isOpen={showDiffModal}
+        onClose={() => setShowDiffModal(false)}
+        path={currentDiff?.path || ''}
+        diff={currentDiff?.diff || ''}
+      />
     </div>
   );
 }

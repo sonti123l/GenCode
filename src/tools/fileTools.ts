@@ -35,38 +35,61 @@ export const fileTools = {
         // Process in batches of 5 for optimal performance
         const batchSize = 5;
 
-
-
         for (let i = 0; i < paths.length; i += batchSize) {
             const batch = paths.slice(i, i + batchSize);
 
-            // The backend command 'read_file_content' apparently expects 'paths': Vec<String>
-            // and likely returns a Map<String, String> or similar.
-            // Let's try calling it in bulk since the name is singular but arg is plural?
-            // Or maybe it was renamed. Let's try passing the batch.
-
             try {
-                // We'll optimistically assume it returns Record<path, content>
-                const batchResult = await invoke<Record<string, string>>("read_file_content", { paths: batch });
+                // The backend returns an array of [path, content] tuples or objects
+                const batchResult = await invoke<any>("read_file_content", { paths: batch });
+                
                 console.log("DEBUG: read_file_content returned:", batchResult);
+                console.log("DEBUG: type of result:", typeof batchResult, Array.isArray(batchResult));
 
-                Object.entries(batchResult).forEach(([path, content]) => {
-                    results.push({ path, content });
-                });
+                // Handle different response formats
+                if (Array.isArray(batchResult)) {
+                    // Format 1: Array of [path, content] tuples
+                    batchResult.forEach((item: any) => {
+                        if (Array.isArray(item) && item.length === 2) {
+                            const [path, content] = item;
+                            results.push({ path, content });
+                        } 
+                        // Format 2: Array of objects with path and content
+                        else if (typeof item === 'object' && item.path) {
+                            results.push({ 
+                                path: item.path, 
+                                content: item.content || "" 
+                            });
+                        }
+                    });
+                } 
+                // Format 3: Object/Record with path keys
+                else if (typeof batchResult === 'object' && batchResult !== null) {
+                    Object.entries(batchResult).forEach(([path, content]) => {
+                        results.push({ 
+                            path, 
+                            content: typeof content === 'string' ? content : String(content) 
+                        });
+                    });
+                }
 
-                // Verify if we missed any
-                batch.forEach(path => {
-                    // Check if we already have a result for this path (handling slash/casing differences)
-                    const found = results.some(r =>
-                        r.path === path ||
-                        r.path.toLowerCase() === path.toLowerCase() ||
-                        r.path.replace(/\\/g, '/') === path.replace(/\\/g, '/') ||
-                        r.path.replace(/\//g, '\\') === path.replace(/\//g, '\\') ||
-                        (r.path.toLowerCase().replace(/\\/g, '/') === path.toLowerCase().replace(/\\/g, '/'))
-                    );
+                // Verify all paths in batch were processed
+                batch.forEach(requestedPath => {
+                    const found = results.some(r => {
+                        // Normalize path comparison (handle different slash types and casing)
+                        const normalizedResult = r.path.toLowerCase().replace(/\\/g, '/');
+                        const normalizedRequested = requestedPath.toLowerCase().replace(/\\/g, '/');
+                        return normalizedResult === normalizedRequested || 
+                               normalizedResult.endsWith(normalizedRequested) ||
+                               normalizedRequested.endsWith(normalizedResult);
+                    });
 
                     if (!found) {
-                        results.push({ path, content: "", error: "No content returned from backend" });
+                        console.warn(`Path not found in results: ${requestedPath}`);
+                        results.push({ 
+                            path: requestedPath, 
+                            content: "", 
+                            error: "No content returned from backend" 
+                        });
                     }
                 });
 
@@ -97,10 +120,28 @@ export const fileTools = {
      */
     readFile: async (path: string): Promise<FileData> => {
         try {
-            // Updated to match 'paths' argument requirement
-            const result = await invoke<Record<string, string>>("read_file_content", { paths: [path] });
-            const content = result[path] || "";
-            return { path, content };
+            const result = await invoke<any>("read_file_content", { paths: [path] });
+            
+            console.log("DEBUG single file read:", result);
+
+            // Handle array response
+            if (Array.isArray(result) && result.length > 0) {
+                const item = result[0];
+                if (Array.isArray(item) && item.length === 2) {
+                    const [returnedPath, content] = item;
+                    return { path: returnedPath, content };
+                } else if (typeof item === 'object' && item.path) {
+                    return { path: item.path, content: item.content || "" };
+                }
+            }
+            
+            // Handle object response
+            if (typeof result === 'object' && result !== null && !Array.isArray(result)) {
+                const content = result[path] || "";
+                return { path, content };
+            }
+
+            return { path, content: "", error: "Unexpected response format" };
         } catch (error) {
             console.error(`Failed to read ${path}:`, error);
             return {

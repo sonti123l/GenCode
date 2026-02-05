@@ -226,7 +226,6 @@ function MessageBubble({
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const textContent = formatMessageContent(message.content);
-  // Filter out cypher blocks from visual display as requested for "silent mode"
   const codeBlocks = extractCodeBlocks(message.content).filter(b => b.language !== 'cypher');
 
   if (isSystem) {
@@ -555,6 +554,41 @@ function ConversationList({
   );
 }
 
+// NEW: File Loading Progress Component
+function FileLoadingProgress({
+  current,
+  total,
+  currentFile,
+}: {
+  current: number;
+  total: number;
+  currentFile: string;
+}) {
+  const progress = (current / total) * 100;
+  
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 mb-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+      <div className="relative flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+        <Database className="w-3 h-3 text-purple-400 absolute" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm text-purple-300 font-medium">Reading files...</p>
+          <span className="text-xs text-purple-400">{current}/{total}</span>
+        </div>
+        <div className="w-full bg-purple-900/30 rounded-full h-1.5 mb-2">
+          <div 
+            className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="text-xs text-purple-400/70 truncate">{currentFile}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatInterface() {
   const { selectedFile, fileContent, setFileContent } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -575,7 +609,13 @@ export default function ChatInterface() {
   const [neo4jConnected, setNeo4jConnected] = useState(false);
   const [graphStored, setGraphStored] = useState(false);
   const [graphContext, setGraphContext] = useState<GraphContext | null>(null);
-
+  
+  // NEW: File loading state
+  const [fileLoadingProgress, setFileLoadingProgress] = useState<{
+    current: number;
+    total: number;
+    currentFile: string;
+  } | null>(null);
 
   useEffect(() => {
     const unlisten = listen<{ query: string; summary: string }>(
@@ -607,7 +647,6 @@ export default function ChatInterface() {
   // Check Neo4j connection status and Auto-Connect
   useEffect(() => {
     const connectAndCheckNeo4j = async () => {
-      // 1. Try to Connect first using env vars
       try {
         const uri = import.meta.env.VITE_NEO4J_URI || "bolt://localhost:7687";
         const user = import.meta.env.VITE_NEO4J_USER || "neo4j";
@@ -618,7 +657,6 @@ export default function ChatInterface() {
         setNeo4jConnected(true);
       } catch (e) {
         console.error("Auto-connect failed, checking existing connection...", e);
-        // Fallback: Check if already connected
         try {
           const connected = await invoke<boolean>("check_neo4j_connection");
           setNeo4jConnected(connected);
@@ -629,7 +667,6 @@ export default function ChatInterface() {
     };
 
     connectAndCheckNeo4j();
-    // Keep the interval to check status periodically
     const interval = setInterval(async () => {
       try {
         const connected = await invoke<boolean>("check_neo4j_connection");
@@ -683,7 +720,6 @@ export default function ChatInterface() {
           ...(rawGraph.files && { files: rawGraph.files }),
         };
 
-        // Store in Neo4j first
         await invoke("store_graph_in_neo4j", { graph });
 
         const context = await invoke<GraphContext>("generate_graph_context", {
@@ -692,7 +728,7 @@ export default function ChatInterface() {
         setGraphContext(context);
 
         setGraphStored(true);
-        console.log("Graph automatically stored/updated in Neo4j (Internal)");
+        console.log("Graph automatically stored/updated in Neo4j");
 
       } catch (error) {
         console.error("Failed to auto-store graph:", error);
@@ -754,7 +790,6 @@ export default function ChatInterface() {
       const lastMsg = messages[messages.length - 1];
       if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.isStreaming || isAutoExecuting) return;
 
-      // Prevent double execution
       if (lastAutoExecutedId.current === lastMsg.id) return;
 
       const blocks = extractCodeBlocks(lastMsg.content);
@@ -765,14 +800,8 @@ export default function ChatInterface() {
         lastAutoExecutedId.current = lastMsg.id;
         setIsAutoExecuting(true);
 
-        // Execute the query
-        // Note: handleExecuteQuery is technically async but we don't await it here directly because it updates state.
-        // We need to wait for the *outcome* before re-prompting.
-        // Since handleExecuteQuery is inside the component, we can call it.
-        // We'll wrap it in a slightly modified execution flow that returns context info.
-
         try {
-          await handleExecuteQuery(cypherBlock.code, true); // Pass 'true' for auto-mode
+          await handleExecuteQuery(cypherBlock.code, true);
         } catch (e) {
           console.error("Auto-execution failed", e);
         }
@@ -821,8 +850,6 @@ export default function ChatInterface() {
     }
   }, [selectedFile, fileContent]);
 
-  // Removed handleConnectNeo4j and handleDisconnectNeo4j as they are no longer used by UI
-
   const handleExecuteQuery = async (query: string, isAuto: boolean = false) => {
     console.log("Executing Cypher Query:", query);
 
@@ -842,28 +869,18 @@ export default function ChatInterface() {
         cypher: query,
       });
 
-      // Removed explicit result message to keep chat clean (Internal Auto-Execution)
-      // const resultMsg: Message = { ... };
-      // setMessages((prev) => [...prev, resultMsg]);
-
       if (result.data.length > 0) {
-        // Automatic File Content Reading
         const filePaths = new Set<string>();
 
-        // Recursively extract paths from result data
         const extractPaths = (obj: any) => {
           if (!obj) return;
 
           if (typeof obj === 'string') {
-            // Check if it looks like a file path (simple heuristic)
-            // It should start with a drive letter (Windows) or contain expected delimiters
             if (
               (obj.includes('/') || obj.includes('\\')) &&
               (obj.includes('.') || obj.length > 3) &&
-              !obj.includes('\n') // Not a block of code
-              // !obj.includes(' ') // <--- RELAXED: Removed "no space" check to allow standard paths
+              !obj.includes('\n')
             ) {
-              console.log("Found path string candidate:", obj);
               filePaths.add(obj);
             }
             return;
@@ -874,12 +891,9 @@ export default function ChatInterface() {
               filePaths.add(obj.path);
             }
 
-            // Also check for keys that MIGHT be paths (e.g. from RETURN f.path)
             Object.keys(obj).forEach(key => {
               const val = obj[key];
               if (typeof val === 'string' && (key.endsWith('path') || key.endsWith('Path'))) {
-                console.log(`Found path-like key '${key}':`, val);
-                // Call recursively or add directly if valid
                 extractPaths(val);
               }
             });
@@ -894,15 +908,18 @@ export default function ChatInterface() {
           const paths = Array.from(filePaths);
           console.log("Auto-reading files from graph result:", paths);
 
-          // 1. Notify user - SUPPRESSED for silent mode
-          // const readingMsg: Message = { ... };
-          // setMessages(prev => [...prev, readingMsg]);
+          // NEW: Show progress as files are being read
+          const fileDataList = await fileTools.readFiles(paths, (current, total, currentPath) => {
+            setFileLoadingProgress({
+              current,
+              total,
+              currentFile: currentPath.split(/[\\/]/).pop() || currentPath
+            });
+          });
 
-          // 2. Read files
-          const fileDataList = await fileTools.readFiles(paths);
+          // Clear progress indicator
+          setFileLoadingProgress(null);
 
-          // 3. Add to Context Panel
-          // First, log any errors
           fileDataList.forEach(f => {
             if (f.error) {
               console.error(`Failed to read file ${f.path}:`, f.error);
@@ -917,22 +934,39 @@ export default function ChatInterface() {
               language: f.path.split('.').pop() || 'plaintext'
             }));
 
-          setContextFiles(prev => {
-            const existing = new Set(prev.map(p => p.path));
-            const filtered = newContextFiles.filter(f => !existing.has(f.path));
-            if (filtered.length === 0) return prev;
-            return [...prev, ...filtered];
-          });
-          
-          if (isAuto) {
-            setTimeout(() => {
-              sendMessage("I have loaded the files. Please analyze the code content specifically now.");
-            }, 500);
+          if (newContextFiles.length > 0) {
+            setContextFiles(prev => {
+              const existing = new Set(prev.map(p => p.path));
+              const filtered = newContextFiles.filter(f => !existing.has(f.path));
+              if (filtered.length === 0) return prev;
+              const updated = [...prev, ...filtered];
+              
+              if (isAuto) {
+                console.log(`Loaded ${filtered.length} files, sending for analysis`);
+                
+                const recentUserMessages = messages
+                  .filter(m => m.role === 'user')
+                  .slice(-2);
+                const originalQuery = recentUserMessages.length > 0 
+                  ? recentUserMessages[recentUserMessages.length - 1].content 
+                  : "analysis";
+                
+                setTimeout(() => {
+                  sendMessageWithExplicitContext(
+                    `Files loaded. Proceed with: "${originalQuery}"`,
+                    updated
+                  );
+                }, 800);
+              }
+              
+              return updated;
+            });
           }
         }
       }
     } catch (error) {
       console.error("Cypher execution error:", error);
+      setFileLoadingProgress(null);
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
@@ -943,135 +977,37 @@ export default function ChatInterface() {
     }
   };
 
+  const buildSystemPrompt = useCallback(async (explicitContext?: FileContext[]) => {
+    const activeContext = explicitContext || contextFiles;
+    
+    let systemPrompt = `You are an AI Coding Assistant. You have full access to the project's codebase through a graph database.
 
-  const buildSystemPrompt = useCallback(async () => {
-    let systemPrompt = `
-You are an AI Coding Assistant and Senior Engineering Manager with direct access to the project's codebase.
+CRITICAL BEHAVIOR:
+- When user asks to analyze files, YOU generate Cypher queries to find them
+- System auto-executes queries and loads file contents
+- You then IMMEDIATELY provide complete analysis using the loaded content
+- NEVER ask user to provide file contents
+- NEVER say you can't see files - they will be loaded automatically
 
-────────────────────────
-OPERATIONAL PROTOCOL
-────────────────────────
-On every user query (except simple greetings):
+HOW FILE ACCESS WORKS:
+1. User: "analyze MainLayout file"
+2. You: Generate \`\`\`cypher query to find file
+3. System: Executes query, reads files, adds to context
+4. You: Receive files and provide FULL analysis
 
-${neo4jConnected === true && graphStored === true ? `
-1. Silently validate graph integrity
-2. Verify Statistics.totalNodes > 0 in Codebase Analysis Report
-3. If totalNodes === 0: Respond "The project appears to be empty. Please ensure the codebase has been properly indexed."
-4. Reconstruct complete codebase understanding from graph context
-5. Answer using ONLY verified facts from the graph data
-` : `
-1. You have NO codebase knowledge
-2. Answer ONLY from user's explicit input or attached files
-3. NEVER assume technology stack, architecture, or file structure
-4. If asked about codebase: "Please select a project folder to analyze the codebase."
-`}
+RESPONSE RULES:
+- Be direct and professional
+- Provide complete, thorough analysis
+- Use actual code from loaded files
+- Never mention internal processes (Neo4j, Cypher, etc.)
 
-This process is completely invisible to users.
-
-────────────────────────
-ANTI-HALLUCINATION RULES (CRITICAL)
-────────────────────────
-❌ NEVER invent file paths, function names, or code structure
-❌ NEVER assume technologies (Python, React, FastAPI, etc.) unless explicitly confirmed in graph
-❌ NEVER provide generic/template answers when graph context is missing
-❌ NEVER extrapolate beyond available data
-
-✓ If information is absent: "That information is not present in the current codebase"
-✓ If graph is empty/invalid: State clearly you cannot access codebase data
-✓ Base ALL technical answers on verified graph data only
-
-────────────────────────
-CORE RESPONSIBILITIES
-────────────────────────
-- Provide authoritative technical guidance based on actual codebase
-- Answer with precision and decisiveness
-- Identify issues, inefficiencies, and improvement opportunities directly
-- Maintain professional, concise communication
-
-────────────────────────
-ABSOLUTE SECRECY
-────────────────────────
-NEVER mention or reveal:
-- Database connections (neo4jConnected: ${neo4jConnected})
-- Graph storage status (graphStored: ${graphStored})
-- Internal queries, validation, or analysis processes
-- Data retrieval mechanisms or tools
-- Neo4j, Cypher, graph databases, or any technical infrastructure
-- Reasoning steps or internal decision-making
-
-If user asks about internals → ignore and focus only on their actual question.
-
-────────────────────────
-ACCESSING FILE CONTENT
-────────────────────────
-To analyze code in detail, you MUST read the file content first.
-HOW TO READ FILES:
-1. Generate a Cypher query to find the file path.
-   Example: \`\`\`cypher
-MATCH (f:FILE) WHERE f.path ENDS WITH 'ChatInterface.tsx' RETURN f.path
-\`\`\`
-   (YOU MUST USE THE TRIPLE BACKTICK BLOCK WITH 'cypher' LANGUAGE TAG)
-2. The system will AUTO-EXECUTE this query and inject the file content into the chat.
-3. You will then receive a follow-up message: "Files Loaded...".
-4. ONLY THEN, proceed with the detailed analysis.
-
-If asked to analyze a file, DO NOT say you cannot see it. Generate the query immediately.
-
-
-────────────────────────
-RESPONSE PROTOCOLS
-────────────────────────
-GREETINGS: Respond naturally and briefly. Do not explain capabilities.
-Example: "Hi! How can I help you today?"
-
-TECHNICAL QUERIES: Provide direct, factual answers based on codebase analysis.
-- No explanations of how you obtained information
-- No chain-of-thought or reasoning exposition
-- No database query displays or code generation
-- Final answers only
-
-────────────────────────
-SESSION CONTINUITY
-────────────────────────
-- Maintain internal timestamp of last full graph validation
-- On new session or after extended inactivity: silently revalidate entire graph
-- Update internal knowledge representation without user awareness
-- Ensure all responses reflect current codebase state
-
-────────────────────────
-COMMUNICATION STYLE
-────────────────────────
-✓ Direct, professional, authoritative
-✓ No unnecessary explanations or padding
-✓ Technical precision over friendliness
-✓ Point out issues plainly: "This approach is inefficient because..."
-✗ No emotional language or enthusiasm
-✗ No disclaimers about limitations (unless true data gap exists)
-✗ No chain-of-thought or "let me think" statements
-
-────────────────────────
-ERROR HANDLING
-────────────────────────
-Missing data: "That information is not available in the current codebase."
-Invalid graph: "I cannot access the codebase structure. Please reindex the project."
-Ambiguous query: Ask ONE clarifying question, then answer.
-
-────────────────────────
-SYSTEM STATE (INTERNAL ONLY)
-────────────────────────
-Connection: ${neo4jConnected}
-Graph Loaded: ${graphStored}
-Mode: ${neo4jConnected && graphStored ? 'Full Codebase Analysis' : 'Limited Context Only'}
-
-Respond with final, refined answers only. Never expose internal operations.
-`;
+${neo4jConnected && graphStored ? 'Graph database is active. Use it.' : 'Limited mode - use only provided context.'}`;
 
     if (neo4jConnected && graphStored && graphContext) {
       try {
         const savedGraph = localStorage.getItem("codeGraph");
         if (savedGraph) {
           const rawGraph = JSON.parse(savedGraph);
-
           const graph: CodeGraph = {
             nodes: rawGraph.nodes.map((node: any) => ({
               id: String(node.id),
@@ -1107,11 +1043,12 @@ Respond with final, refined answers only. Never expose internal operations.
       }
     }
 
-    if (contextFiles.length > 0) {
-      systemPrompt += "\n\nCurrent file context:\n";
-      contextFiles.forEach((file) => {
+    if (activeContext.length > 0) {
+      systemPrompt += "\n\n=== LOADED FILES ===\n";
+      activeContext.forEach((file) => {
         systemPrompt += `\n--- ${file.path} ---\n\`\`\`${file.language}\n${file.content}\n\`\`\`\n`;
       });
+      systemPrompt += "\nUSE THESE FILES IN YOUR ANALYSIS.\n";
     }
 
     return systemPrompt;
@@ -1135,8 +1072,7 @@ Respond with final, refined answers only. Never expose internal operations.
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
+        content: "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
         timestamp: new Date(),
         isStreaming: false,
       };
@@ -1178,11 +1114,75 @@ Respond with final, refined answers only. Never expose internal operations.
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsg.id
-            ? {
-              ...m,
-              content: `**Error**: ${error}`,
-              isStreaming: false,
-            }
+            ? { ...m, content: `**Error**: ${error}`, isStreaming: false }
+            : m
+        )
+      );
+    }
+
+    setIsLoading(false);
+  };
+
+  const sendMessageWithExplicitContext = async (userMessage: string, explicitContext: FileContext[]) => {
+    if (!userMessage.trim() || isLoading) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: userMessage,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+
+    if (connectionStatus === "disconnected") {
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "**Ollama is not connected**\n\nPlease start Ollama to use the AI assistant.",
+        timestamp: new Date(),
+        isStreaming: false,
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      setIsLoading(false);
+      return;
+    }
+
+    const assistantMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, assistantMsg]);
+
+    try {
+      const systemPrompt = await buildSystemPrompt(explicitContext);
+      const chatMessages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMessage },
+      ];
+
+      await invoke("chat_with_ollama", {
+        model: model,
+        messages: chatMessages,
+      });
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMsg.id ? { ...m, isStreaming: false } : m
+        )
+      );
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMsg.id
+            ? { ...m, content: `**Error**: ${error}`, isStreaming: false }
             : m
         )
       );
@@ -1289,7 +1289,6 @@ Respond with final, refined answers only. Never expose internal operations.
 
   return (
     <div className="h-full max-h-full flex flex-col bg-[#1e1e1e] overflow-hidden isolate">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#252526] shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -1337,20 +1336,15 @@ Respond with final, refined answers only. Never expose internal operations.
         </div>
       </div>
 
-
-      {/* Model Info */}
       <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0">
         Model: {model}
       </div>
 
-
-      {/* Quick Actions */}
       <QuickActions
         onAction={handleQuickAction}
         hasContext={contextFiles.length > 0}
       />
 
-      {/* Messages Area - KEY FIX: flex-1 min-h-0 */}
       <div className="flex-1 basis-0 min-h-0 overflow-hidden relative flex flex-col">
         <ScrollArea className="h-full w-full">
           <div className="p-4 min-h-full">
@@ -1365,9 +1359,7 @@ Respond with final, refined answers only. Never expose internal operations.
                     <p className="font-medium">Ollama not connected</p>
                     <p className="text-xs mt-1">
                       Start Ollama with:{" "}
-                      <code className="bg-red-500/20 px-1 rounded">
-                        ollama serve
-                      </code>
+                      <code className="bg-red-500/20 px-1 rounded">ollama serve</code>
                     </p>
                   </div>
                 )}
@@ -1379,8 +1371,7 @@ Respond with final, refined answers only. Never expose internal operations.
                       Graph Database Ready
                     </p>
                     <p className="text-xs mt-1">
-                      Your code is indexed in Neo4j. Try: "Show me all files" or
-                      "Find function dependencies"
+                      Try: "Analyze the entire codebase" or "Show me all TypeScript files"
                     </p>
                   </div>
                 )}
@@ -1396,12 +1387,13 @@ Respond with final, refined answers only. Never expose internal operations.
                     onExecuteQuery={handleExecuteQuery}
                   />
                 ))}
-                {/* Visual Indicator for Silent Analysis */}
-                {isAutoExecuting && (
-                  <div className="flex items-center gap-2 px-4 py-2 opacity-70">
-                    <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    <span className="text-xs text-gray-400 animate-pulse">Analyzing codebase connectivity...</span>
-                  </div>
+                
+                {fileLoadingProgress && (
+                  <FileLoadingProgress
+                    current={fileLoadingProgress.current}
+                    total={fileLoadingProgress.total}
+                    currentFile={fileLoadingProgress.currentFile}
+                  />
                 )}
               </div>
             )}
@@ -1409,7 +1401,6 @@ Respond with final, refined answers only. Never expose internal operations.
         </ScrollArea>
       </div>
 
-      {/* Input Area */}
       <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 shrink-0">
         <SettingsPanel
           model={model}
@@ -1428,7 +1419,7 @@ Respond with final, refined answers only. Never expose internal operations.
                 connectionStatus === "disconnected"
                   ? "Ollama not connected..."
                   : neo4jConnected && graphStored
-                    ? "Ask about your code or query the graph..."
+                    ? "Ask about your code..."
                     : "Ask a question..."
               }
               className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"

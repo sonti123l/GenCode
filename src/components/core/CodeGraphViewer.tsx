@@ -7,7 +7,7 @@ import {
   GraphNode,
 } from "../rootfiles/buildCodeGraphFromFiles";
 import { Network, Download, FileCode, GitBranch, Activity } from "lucide-react";
-import { openGraphInBrowser } from "../rootfiles/openGraphInBrowser";
+
 
 
 export default function CodeGraphViewer() {

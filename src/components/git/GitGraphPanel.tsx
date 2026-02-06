@@ -49,10 +49,7 @@ export default function GitGraphPanel({ repoPath }: { repoPath: string }) {
     return date.toLocaleDateString();
   };
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(parseInt(timestamp) * 1000);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+
 
   if (loading && history.length === 0) {
     return (

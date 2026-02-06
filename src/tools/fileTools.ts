@@ -36,7 +36,7 @@ export const fileTools = {
 
       try {
         const batchResult = await invoke<any>("read_file_content", { paths: batch });
-        
+
         console.log("DEBUG: read_file_content returned:", batchResult);
 
         if (Array.isArray(batchResult)) {
@@ -45,17 +45,17 @@ export const fileTools = {
               const [path, content] = item;
               results.push({ path, content });
             } else if (typeof item === 'object' && item.path) {
-              results.push({ 
-                path: item.path, 
-                content: item.content || "" 
+              results.push({
+                path: item.path,
+                content: item.content || ""
               });
             }
           });
         } else if (typeof batchResult === 'object' && batchResult !== null) {
           Object.entries(batchResult).forEach(([path, content]) => {
-            results.push({ 
-              path, 
-              content: typeof content === 'string' ? content : String(content) 
+            results.push({
+              path,
+              content: typeof content === 'string' ? content : String(content)
             });
           });
         }
@@ -64,17 +64,17 @@ export const fileTools = {
           const found = results.some(r => {
             const normalizedResult = r.path.toLowerCase().replace(/\\/g, '/');
             const normalizedRequested = requestedPath.toLowerCase().replace(/\\/g, '/');
-            return normalizedResult === normalizedRequested || 
-                   normalizedResult.endsWith(normalizedRequested) ||
-                   normalizedRequested.endsWith(normalizedResult);
+            return normalizedResult === normalizedRequested ||
+              normalizedResult.endsWith(normalizedRequested) ||
+              normalizedRequested.endsWith(normalizedResult);
           });
 
           if (!found) {
             console.warn(`Path not found in results: ${requestedPath}`);
-            results.push({ 
-              path: requestedPath, 
-              content: "", 
-              error: "No content returned from backend" 
+            results.push({
+              path: requestedPath,
+              content: "",
+              error: "No content returned from backend"
             });
           }
         });
@@ -101,7 +101,7 @@ export const fileTools = {
   readFile: async (path: string): Promise<FileData> => {
     try {
       const result = await invoke<any>("read_file_content", { paths: [path] });
-      
+
       if (Array.isArray(result) && result.length > 0) {
         const item = result[0];
         if (Array.isArray(item) && item.length === 2) {
@@ -111,7 +111,7 @@ export const fileTools = {
           return { path: item.path, content: item.content || "" };
         }
       }
-      
+
       if (typeof result === 'object' && result !== null && !Array.isArray(result)) {
         const content = result[path] || "";
         return { path, content };
@@ -160,20 +160,20 @@ export const fileTools = {
 
         const lines = fileData.content.split('\n');
         const matches = [];
-        
-        const searchRegex = options?.regex 
+
+        const searchRegex = options?.regex
           ? new RegExp(pattern, options.caseSensitive ? 'g' : 'gi')
-          : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 
-                      options?.caseSensitive ? 'g' : 'gi');
+          : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            options?.caseSensitive ? 'g' : 'gi');
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           const match = searchRegex.exec(line);
-          
+
           if (match) {
             const startLine = Math.max(0, i - contextLines);
             const endLine = Math.min(lines.length, i + contextLines + 1);
-            
+
             matches.push({
               line: i + 1,
               column: match.index + 1,
@@ -229,13 +229,13 @@ export const fileTools = {
         // Fuzzy matching with whitespace tolerance
         const searchLines = normalizedSearch.split('\n');
         const contentLines = normalizedContent.split('\n');
-        
+
         let bestMatch = { score: 0, index: -1 };
-        
+
         for (let i = 0; i <= contentLines.length - searchLines.length; i++) {
           const block = contentLines.slice(i, i + searchLines.length).join('\n');
           const score = calculateSimilarity(normalizedSearch, block);
-          
+
           if (score > bestMatch.score && score > 0.8) {
             bestMatch = { score, index: i };
           }
@@ -244,24 +244,24 @@ export const fileTools = {
         if (bestMatch.index !== -1) {
           const before = contentLines.slice(0, bestMatch.index).join('\n');
           const after = contentLines.slice(bestMatch.index + searchLines.length).join('\n');
-          
-          newContent = before + 
-                      (before ? '\n' : '') + 
-                      normalizedReplace + 
-                      (after ? '\n' : '') + 
-                      after;
+
+          newContent = before +
+            (before ? '\n' : '') +
+            normalizedReplace +
+            (after ? '\n' : '') +
+            after;
         } else {
-          return { 
-            success: false, 
-            path, 
-            error: `Could not find matching block. Search content:\n${search}` 
+          return {
+            success: false,
+            path,
+            error: `Could not find matching block. Search content:\n${search}`
           };
         }
       } else {
-        return { 
-          success: false, 
-          path, 
-          error: `Exact match not found. Consider using fuzzy matching.` 
+        return {
+          success: false,
+          path,
+          error: `Exact match not found. Consider using fuzzy matching.`
         };
       }
 
@@ -300,7 +300,7 @@ export const fileTools = {
       }
 
       await invoke("write_file_content", { path, content });
-      
+
       return {
         success: true,
         path,
@@ -323,7 +323,7 @@ export const fileTools = {
       }
 
       await invoke("delete_file", { path });
-      
+
       return {
         success: true,
         path,
@@ -339,8 +339,8 @@ export const fileTools = {
    * Insert content at a specific line number.
    */
   insertAtLine: async (
-    path: string, 
-    line: number, 
+    path: string,
+    line: number,
     content: string
   ): Promise<EditResult> => {
     try {
@@ -351,7 +351,7 @@ export const fileTools = {
 
       const lines = fileData.content.split('\n');
       const insertIndex = Math.min(line - 1, lines.length);
-      
+
       lines.splice(insertIndex, 0, content);
       const newContent = lines.join('\n');
 
@@ -396,14 +396,14 @@ export const fileTools = {
               result = { success: false, path: edit.path, error: "Missing search or replace" };
             } else {
               result = await fileTools.applySearchReplace(
-                edit.path, 
-                edit.search, 
+                edit.path,
+                edit.search,
                 edit.replace,
                 { fuzzy: true, preserveIndentation: true }
               );
             }
             break;
-          
+
           case 'create':
             if (!edit.content) {
               result = { success: false, path: edit.path, error: "Missing content" };
@@ -411,11 +411,11 @@ export const fileTools = {
               result = await fileTools.createFile(edit.path, edit.content);
             }
             break;
-          
+
           case 'delete':
             result = await fileTools.deleteFile(edit.path);
             break;
-          
+
           case 'insert':
             if (!edit.content || !edit.line) {
               result = { success: false, path: edit.path, error: "Missing content or line" };
@@ -423,7 +423,7 @@ export const fileTools = {
               result = await fileTools.insertAtLine(edit.path, edit.line, edit.content);
             }
             break;
-          
+
           case 'patch':
             if (!edit.patch) {
               result = { success: false, path: edit.path, error: "Missing patch" };
@@ -431,7 +431,7 @@ export const fileTools = {
               result = await fileTools.applyPatch(edit.path, edit.patch);
             }
             break;
-          
+
           default:
             result = { success: false, path: edit.path, error: "Unknown edit type" };
         }
@@ -449,7 +449,7 @@ export const fileTools = {
 
       return results;
     } catch (error) {
-      return results.map(r => 
+      return results.map(r =>
         r.success ? { ...r, success: false, error: "Rolled back due to subsequent failure" } : r
       );
     }
@@ -468,7 +468,7 @@ export const fileTools = {
 
       const oldContent = fileData.error ? "" : fileData.content;
       const newContent = applyUnifiedDiff(oldContent, patch);
-      
+
       await fileTools.writeFile(path, newContent);
 
       return {
@@ -539,20 +539,20 @@ export const fileTools = {
 // Utility functions
 export function calculateSimilarity(a: string, b: string): number {
   if (a === b) return 1.0;
-  
+
   const len = Math.max(a.length, b.length);
   if (len === 0) return 1.0;
-  
+
   const distance = levenshteinDistance(a, b);
   return 1 - distance / len;
 }
 
 export function levenshteinDistance(a: string, b: string): number {
   const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
-  
+
   for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
   for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-  
+
   for (let j = 1; j <= b.length; j++) {
     for (let i = 1; i <= a.length; i++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
@@ -563,23 +563,23 @@ export function levenshteinDistance(a: string, b: string): number {
       );
     }
   }
-  
+
   return matrix[b.length][a.length];
 }
 
 export function generateDiff(path: string, oldContent: string, newContent: string): string {
   const oldLines = oldContent.split('\n');
   const newLines = newContent.split('\n');
-  
+
   let diff = `--- ${path}\n+++ ${path}\n`;
-  
+
   const maxLines = Math.max(oldLines.length, newLines.length);
   let inHunk = false;
-  
+
   for (let i = 0; i < maxLines; i++) {
     const oldLine = oldLines[i] ?? "";
     const newLine = newLines[i] ?? "";
-    
+
     if (oldLine !== newLine) {
       if (!inHunk) {
         diff += `@@ -${i + 1},1 +${i + 1},1 @@\n`;
@@ -592,7 +592,7 @@ export function generateDiff(path: string, oldContent: string, newContent: strin
       diff += ` ${oldLine}\n`;
     }
   }
-  
+
   return diff;
 }
 
@@ -601,20 +601,20 @@ export function applyUnifiedDiff(content: string, patch: string): string {
   const patchLines = patch.split('\n');
   let result = [...lines];
   let lineOffset = 0;
-  
+
   for (let i = 0; i < patchLines.length; i++) {
     const line = patchLines[i];
-    
+
     if (line.startsWith('@@')) {
       const match = line.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
       if (match) {
         const startLine = parseInt(match[1]) - 1 + lineOffset;
         let removeCount = parseInt(match[2] || '1');
-        const addCount = parseInt(match[4] || '1');
-        
+
+
         const toRemove: string[] = [];
         const toAdd: string[] = [];
-        
+
         i++;
         while (i < patchLines.length && !patchLines[i].startsWith('@@')) {
           if (patchLines[i].startsWith('-')) {
@@ -625,13 +625,13 @@ export function applyUnifiedDiff(content: string, patch: string): string {
           i++;
         }
         i--;
-        
+
         result.splice(startLine, removeCount, ...toAdd);
         lineOffset += toAdd.length - removeCount;
       }
     }
   }
-  
+
   return result.join('\n');
 }
 

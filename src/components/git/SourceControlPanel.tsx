@@ -11,7 +11,7 @@ import {
     ChevronDown,
     Undo2,
     File,
-    GitPullRequest,
+
     GitCommit,
     GitBranch,
     X,
@@ -20,7 +20,7 @@ import {
 
 interface GitFileStatus {
     path: string;
-    status: string; 
+    status: string;
 }
 
 interface GitRepoStatus {
@@ -250,16 +250,16 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
                     )}
                 </div>
                 <div className="flex gap-0.5">
-                    <button 
-                        onClick={refreshStatus} 
-                        title="Refresh" 
+                    <button
+                        onClick={refreshStatus}
+                        title="Refresh"
                         className="p-1 hover:bg-[#2a2d2e] rounded transition-colors"
                         disabled={loading}
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    <button 
-                        title="More Actions..." 
+                    <button
+                        title="More Actions..."
                         className="p-1 hover:bg-[#2a2d2e] rounded transition-colors"
                     >
                         <MoreHorizontal className="w-4 h-4" />
@@ -276,9 +276,9 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
                             <span className="text-[#cccccc] font-medium">{status.branch}</span>
                         </div>
                         <div className="flex gap-1">
-                            <button 
-                                onClick={handlePull} 
-                                title="Pull" 
+                            <button
+                                onClick={handlePull}
+                                title="Pull"
                                 className="p-1 hover:bg-[#2a2d2e] rounded text-[#cccccc] hover:text-white transition-colors"
                                 disabled={loading}
                             >
@@ -286,9 +286,9 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                                 </svg>
                             </button>
-                            <button 
-                                onClick={handlePush} 
-                                title="Push" 
+                            <button
+                                onClick={handlePush}
+                                title="Push"
                                 className="p-1 hover:bg-[#2a2d2e] rounded text-[#cccccc] hover:text-white transition-colors"
                                 disabled={loading}
                             >
@@ -333,11 +333,10 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
                         <button
                             onClick={handleCommit}
                             disabled={!commitMessage.trim() || loading || !status?.staged?.length}
-                            className={`flex-1 py-1.5 px-3 rounded flex items-center justify-center gap-1.5 text-[12px] font-medium transition-all ${
-                                !commitMessage.trim() || loading || !status?.staged?.length
+                            className={`flex-1 py-1.5 px-3 rounded flex items-center justify-center gap-1.5 text-[12px] font-medium transition-all ${!commitMessage.trim() || loading || !status?.staged?.length
                                     ? "bg-[#2d2d2d] text-[#656565] cursor-not-allowed"
                                     : "bg-[#0e639c] hover:bg-[#1177bb] text-white"
-                            }`}
+                                }`}
                         >
                             <Check className="w-3.5 h-3.5" />
                             Commit

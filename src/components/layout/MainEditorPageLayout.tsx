@@ -44,11 +44,10 @@ function IconSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setActiveTab(item.id)}
-                className={`p-2 rounded-md transition-colors ${
-                  activeTab === item.id
+                className={`p-2 rounded-md transition-colors ${activeTab === item.id
                     ? "bg-white/20 text-white"
                     : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                }`}
+                  }`}
               >
                 <item.icon className="w-5 h-5" />
               </button>
@@ -62,7 +61,7 @@ function IconSidebar({
 }
 
 export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
-  const { showChat, setShowChat } = useChatVisibility();
+  const { showChat } = useChatVisibility();
   const { showTerminal, toggleTerminal } = useTerminalVisibility();
   const [chatWidth, setChatWidth] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
@@ -113,9 +112,8 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
               {showChat && (
                 <>
                   <div
-                    className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${
-                      isResizing ? "bg-purple-500" : ""
-                    }`}
+                    className={`w-1 bg-[#3c3c3c] hover:bg-purple-500 cursor-col-resize transition-colors shrink-0 ${isResizing ? "bg-purple-500" : ""
+                      }`}
                     onMouseDown={handleMouseDown}
                   />
 

@@ -7,6 +7,9 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "../ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Button } from "../ui/button";
+import ProfileIcon from "@/icons/profile";
 
 interface ChatContextType {
   showChat: boolean;
@@ -74,6 +77,56 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 GEN CODE
               </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-10 h-8 p-0 rounded-none hover:bg-[#2d2d30] flex items-center justify-center"
+                  >
+                    <ProfileIcon className="w-4 h-4 text-[#c5c5c5]" />
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                  align="end"
+                  sideOffset={6}
+                  className="
+      w-52 
+      p-2 
+      bg-[#252526] 
+      border border-[#3c3c3c] 
+      rounded-md 
+      shadow-2xl
+      text-sm
+    "
+                >
+                  <div className="flex flex-col">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-2 py-1 text-[#cccccc] hover:bg-[#37373d]"
+                    >
+                      Sign In
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-2 py-1 text-[#cccccc] hover:bg-[#37373d]"
+                    >
+                      Settings
+                    </Button>
+
+                    <div className="h-px bg-[#3c3c3c] my-1" />
+
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-2 py-1 text-red-400 hover:bg-red-500/15"
+                    >
+                      Sign Out
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               <Tooltip>
                 <TooltipTrigger asChild>

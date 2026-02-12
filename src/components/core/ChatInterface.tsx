@@ -1,4 +1,4 @@
-// src/components/chat/ChatInterface.tsx
+﻿// src/components/chat/ChatInterface.tsx
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useEditor } from "@/context/EditorContext";
 import { invoke } from "@tauri-apps/api/core";
@@ -229,15 +229,15 @@ const MarkdownComponents = {
 
     if (inline) {
       return (
-        <code className="bg-[#3c3c3c] px-1.5 py-0.5 rounded text-sm font-mono text-blue-300" {...props}>
+        <code className="chat-surface-2 px-1.5 py-0.5 rounded text-sm font-mono text-emerald-300 border chat-border" {...props}>
           {children}
         </code>
       );
     }
 
     return (
-      <div className="my-2 rounded-lg border border-[#3c3c3c] bg-[#1e1e1e] overflow-hidden shadow-lg">
-        <div className="flex items-center justify-between px-3 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c]">
+      <div className="my-2 rounded-xl border chat-border chat-surface-2 overflow-hidden shadow-lg">
+        <div className="flex items-center justify-between px-3 py-2 chat-surface border-b chat-border">
           <div className="flex items-center gap-2">
             <FileCode className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-gray-400 font-mono">{language}</span>
@@ -250,7 +250,7 @@ const MarkdownComponents = {
           </button>
         </div>
         <pre className="p-3 overflow-x-auto text-sm max-h-96 overflow-y-auto custom-scrollbar">
-          <code className={`${className} font-mono whitespace-pre`} {...props}>
+          <code className={`${className} font-mono whitespace-pre text-gray-200`} {...props}>
             {children}
           </code>
         </pre>
@@ -258,7 +258,7 @@ const MarkdownComponents = {
     );
   },
   p({ children }: any) {
-    return <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>;
+    return <p className="mb-4 last:mb-0 leading-relaxed break-words">{children}</p>;
   },
   h1({ children }: any) {
     return <h1 className="text-xl font-bold mb-4 text-white border-b border-[#3c3c3c] pb-2">{children}</h1>;
@@ -276,11 +276,11 @@ const MarkdownComponents = {
     return <ol className="list-decimal list-inside mb-4 space-y-1 text-gray-300">{children}</ol>;
   },
   li({ children }: any) {
-    return <li className="ml-2">{children}</li>;
+    return <li className="ml-2 break-words">{children}</li>;
   },
   blockquote({ children }: any) {
     return (
-      <blockquote className="border-l-4 border-purple-500 pl-4 py-2 my-4 bg-purple-500/10 rounded-r text-gray-300 italic">
+      <blockquote className="border-l-4 border-emerald-500/70 pl-4 py-2 my-4 chat-surface rounded-r text-gray-300 italic">
         {children}
       </blockquote>
     );
@@ -347,8 +347,8 @@ function CodeBlockDisplay({
   const isCypher = block.language === "cypher";
 
   return (
-    <div className="my-2 rounded-lg border border-[#3c3c3c] bg-[#1e1e1e] overflow-hidden shrink-0 shadow-lg">
-      <div className="flex items-center justify-between px-3 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c]">
+    <div className="my-2 rounded-xl border chat-border chat-surface-2 overflow-hidden shadow-lg w-full min-w-0">
+      <div className="flex items-center justify-between px-3 py-2 chat-surface border-b chat-border">
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setExpanded(!expanded)}
@@ -413,7 +413,7 @@ function CodeBlockDisplay({
       </div>
       {expanded && (
         <pre className="p-3 overflow-x-auto text-sm max-h-96 overflow-y-auto custom-scrollbar">
-          <code className="text-gray-300 font-mono whitespace-pre">
+          <code className="text-gray-200 font-mono whitespace-pre">
             {block.code}
           </code>
         </pre>
@@ -530,7 +530,7 @@ function CypherQueryAnimation({ query, onComplete }: { query: string; onComplete
             <Database className="w-5 h-5 text-purple-400" />
           </div>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-purple-300">Executing Graph Query</p>
           <p className="text-xs text-purple-400/70 mt-0.5">{steps[progress]}</p>
         </div>
@@ -618,13 +618,13 @@ function PlanDisplay({
   };
 
   return (
-    <div className="my-4 p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 animate-slide-in">
+    <div className="my-4 p-4 rounded-xl chat-surface-2 border chat-border animate-slide-in">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <GitBranch className="w-5 h-5 text-amber-400" />
-          <h3 className="text-sm font-bold text-amber-300">{plan.title}</h3>
+          <GitBranch className="w-5 h-5 text-emerald-400" />
+          <h3 className="text-sm font-semibold text-gray-100">{plan.title}</h3>
         </div>
-        <span className={`text-xs px-2 py-1 rounded font-medium ${plan.status === 'draft' ? 'bg-amber-500/20 text-amber-400' :
+        <span className={`text-xs px-2 py-1 rounded-full font-medium ${plan.status === 'draft' ? 'bg-emerald-500/10 text-emerald-400' :
           plan.status === 'approved' ? 'bg-green-500/20 text-green-400' :
             plan.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
               'bg-blue-500/20 text-blue-400'
@@ -633,21 +633,21 @@ function PlanDisplay({
         </span>
       </div>
 
-      <p className="text-sm text-gray-300 mb-4 whitespace-pre-wrap">{plan.description}</p>
+      <p className="text-sm text-gray-300 mb-4 whitespace-pre-wrap break-words">{plan.description}</p>
 
       <div className="space-y-2 mb-4">
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Planned Steps</h4>
         {plan.steps.map((step, index) => (
-          <div key={step.id} className="flex items-start gap-3 p-2 bg-[#2d2d2d] rounded border border-[#3c3c3c]">
+          <div key={step.id} className="flex items-start gap-3 p-2 chat-surface rounded-lg border chat-border min-w-0">
             <span className="text-xs text-gray-500 font-mono mt-0.5">{index + 1}</span>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {editingStep === step.id ? (
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm text-white"
+                    className="flex-1 chat-surface-2 border chat-border rounded px-2 py-1 text-sm text-white"
                     autoFocus
                   />
                   <button
@@ -661,15 +661,15 @@ function PlanDisplay({
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
                     {getStatusIcon(step.status)}
-                    <span className={`text-sm ${step.status === 'rejected' ? 'line-through text-gray-500' : 'text-gray-300'
+                    <span className={`text-sm break-words whitespace-pre-wrap ${step.status === 'rejected' ? 'line-through text-gray-500' : 'text-gray-300'
                       }`}>
                       {step.description}
                     </span>
                     {step.filePath && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono shrink-0 max-w-[50%] truncate">
                         {step.filePath.split(/[\\/]/).pop()}
                       </span>
                     )}
@@ -680,7 +680,7 @@ function PlanDisplay({
                         setEditingStep(step.id);
                         setEditValue(step.description);
                       }}
-                      className="p-1 text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                     >
                       <Edit3 className="w-3 h-3" />
                     </button>
@@ -696,14 +696,14 @@ function PlanDisplay({
         <div className="flex gap-2">
           <button
             onClick={onApprove}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm font-medium transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 chat-button rounded-full text-white text-sm font-medium transition-colors"
           >
             <CheckCircle className="w-4 h-4" />
             Approve Plan
           </button>
           <button
             onClick={onReject}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white text-sm font-medium transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-full text-white text-sm font-medium transition-colors"
           >
             <X className="w-4 h-4" />
             Reject
@@ -744,8 +744,8 @@ function MessageBubble({
 
   if (isSystem) {
     return (
-      <div className="flex justify-center mb-4 shrink-0 animate-slide-in">
-        <div className="px-4 py-2 bg-[#2d2d2d] rounded-full text-sm text-gray-400 border border-[#3c3c3c] max-w-[90%] wrap-break-word">
+      <div className="flex justify-center mb-4 shrink-0 animate-slide-in w-full min-w-0">
+        <div className="px-4 py-2 chat-surface-2 rounded-full text-sm chat-muted border chat-border max-w-[90%] break-words">
           {message.content}
         </div>
       </div>
@@ -754,7 +754,7 @@ function MessageBubble({
 
   return (
     <div
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 shrink-0 animate-slide-in`}
+      className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""} mb-4 shrink-0 animate-slide-in w-full min-w-0`}
     >
       <div
         className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${isUser ? "bg-gradient-to-br from-blue-500 to-blue-600" : "bg-gradient-to-br from-purple-500 to-purple-600"
@@ -793,9 +793,9 @@ function MessageBubble({
         {/* Message Content with Markdown */}
         {(textContent || message.content) && (
           <div
-            className={`rounded-lg px-4 py-3 wrap-break-word shadow-md max-w-full ${isUser
-              ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white"
-              : "bg-[#2d2d2d] text-gray-200 border border-[#3c3c3c]"
+            className={`rounded-2xl px-4 py-3 break-words shadow-sm max-w-full ${isUser
+              ? "bg-[#2f80ed] text-white"
+              : "chat-surface-2 text-gray-200 border chat-border"
               }`}
           >
             {isUser ? (
@@ -803,7 +803,7 @@ function MessageBubble({
                 {message.content}
               </p>
             ) : (
-              <div className="prose prose-invert prose-sm max-w-none">
+              <div className="prose prose-invert prose-sm max-w-full">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={MarkdownComponents}
@@ -841,70 +841,6 @@ function MessageBubble({
   );
 }
 
-function ContextPanel({
-  files,
-  onRemove,
-  onClear,
-}: {
-  files: FileContext[];
-  onRemove: (path: string) => void;
-  onClear: () => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-
-  if (files.length === 0) return null;
-
-  return (
-    <div className="border-b border-[#3c3c3c] bg-[#252526] shrink-0">
-      <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2">
-          {expanded ? (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          )}
-          <Eye className="w-4 h-4 text-green-400" />
-          <span className="text-sm text-gray-300 font-medium">
-            Context ({files.length} {files.length === 1 ? 'file' : 'files'})
-          </span>
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          className="text-xs text-gray-500 hover:text-red-400 transition-colors font-medium"
-        >
-          Clear all
-        </button>
-      </div>
-      {expanded && (
-        <div className="px-3 pb-2 flex flex-wrap gap-2">
-          {files.map((file) => (
-            <div
-              key={file.path}
-              className="flex items-center gap-1 px-2 py-1 bg-[#3c3c3c] rounded text-xs text-gray-300 max-w-full hover:bg-[#4c4c4c] transition-colors group"
-            >
-              <FileCode className="w-3 h-3 shrink-0 text-blue-400" />
-              <span className="truncate font-mono">
-                {file.path.split(/[\\/]/).pop()}
-              </span>
-              <button
-                onClick={() => onRemove(file.path)}
-                className="ml-1 hover:text-red-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SettingsPanel({
   model,
@@ -1741,7 +1677,7 @@ export default function ChatInterface() {
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: "⚠️ Neo4j is not connected. Please connect first.",
+        content: "âš ï¸ Neo4j is not connected. Please connect first.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -2188,7 +2124,7 @@ RESPONSE RULES:
       const successMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: `✅ Successfully applied changes to ${block.fileName}`,
+        content: `âœ… Successfully applied changes to ${block.fileName}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMsg]);
@@ -2196,7 +2132,7 @@ RESPONSE RULES:
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: `❌ Failed to apply changes: ${error}`,
+        content: `âŒ Failed to apply changes: ${error}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -2292,8 +2228,19 @@ RESPONSE RULES:
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#0f0f10] overflow-hidden text-gray-100">
       <style>{`
+        :root {
+          --chat-bg: #0f0f10;
+          --chat-surface: #151618;
+          --chat-surface-2: #1b1d20;
+          --chat-border: #2a2d31;
+          --chat-text: #e7e9ee;
+          --chat-muted: #9aa3ad;
+          --chat-accent: #10a37f;
+          --chat-accent-2: #1a7f64;
+        }
+
         @keyframes slide-in {
           from {
             opacity: 0;
@@ -2361,15 +2308,64 @@ RESPONSE RULES:
         }
 
         .prose pre {
-          background-color: #1e1e1e !important;
+          background-color: var(--chat-surface) !important;
+        }
+
+        .prose {
+          max-width: 100% !important;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .prose * {
+          max-width: 100%;
+        }
+
+        .prose ol,
+        .prose ul {
+          padding-left: 1.25rem;
+        }
+
+        .chat-surface {
+          background: var(--chat-surface);
+        }
+
+        .chat-surface-2 {
+          background: var(--chat-surface-2);
+        }
+
+        .chat-border {
+          border-color: var(--chat-border);
+        }
+
+        .chat-muted {
+          color: var(--chat-muted);
+        }
+
+        .chat-accent {
+          color: var(--chat-accent);
+        }
+
+        .chat-button {
+          background: var(--chat-accent);
+        }
+
+        .chat-button:hover {
+          background: var(--chat-accent-2);
+        }
+
+        .chat-ring:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.35);
+          border-color: var(--chat-accent);
         }
       `}</style>
 
       {/* Header with Mode Selector */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#252526] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b chat-border chat-surface shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-400" />
+            <Sparkles className="w-5 h-5 text-emerald-400" />
             <span className="font-medium text-white">AI Assistant</span>
             <AgentModeBadge mode={agentMode} />
             <span
@@ -2391,7 +2387,7 @@ RESPONSE RULES:
         </div>
         <div className="flex items-center gap-2">
           {/* Agent Mode Toggle */}
-          <div className="flex items-center gap-1 bg-[#1e1e1e] rounded-lg p-1 border border-[#3c3c3c]">
+          <div className="flex items-center gap-1 chat-surface-2 rounded-full p-1 border chat-border">
             {(['chat', 'agent', 'ask'] as AgentMode[]).map((mode) => (
               <button
                 key={mode}
@@ -2402,8 +2398,8 @@ RESPONSE RULES:
                     setCurrentPlan(null);
                   }
                 }}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all flex items-center gap-1 ${agentMode === mode
-                  ? mode === 'agent' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg' : 'bg-[#3c3c3c] text-white'
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${agentMode === mode
+                  ? mode === 'agent' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-[#2b2f35] text-white'
                   : 'text-gray-400 hover:text-gray-200'
                   }`}
               >
@@ -2439,7 +2435,7 @@ RESPONSE RULES:
         </div>
       </div>
 
-      <div className="px-4 py-1 bg-[#252526] border-b border-[#3c3c3c] text-xs text-gray-500 shrink-0 flex items-center justify-between">
+      <div className="px-4 py-1 chat-surface border-b chat-border text-xs chat-muted shrink-0 flex items-center justify-between">
         <span className="font-mono">Model: {model}</span>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 cursor-pointer">
@@ -2467,9 +2463,9 @@ RESPONSE RULES:
 
       <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
         <ScrollArea className="h-full w-full">
-          <div className="p-4 min-h-full">
+          <div className="p-5 md:p-6 min-h-full overflow-x-hidden">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 min-h-[400px]">
+              <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 min-h-100">
                 <div className="relative mb-4">
                   <Bot className="w-12 h-12 text-purple-400/50" />
                   <div className="absolute inset-0 animate-ping opacity-20">
@@ -2486,9 +2482,9 @@ RESPONSE RULES:
                       Agent Mode Active
                     </p>
                     <ul className="text-left text-gray-400 space-y-1 text-xs">
-                      <li>• Ask me to <strong>analyze</strong> your codebase - I'll search and read files automatically</li>
-                      <li>• Ask me to <strong>modify</strong> code - I'll create a plan for your approval first</li>
-                      <li>• I can create, edit, and delete files with your permission</li>
+                      <li>Ask me to <strong>analyze</strong> your codebase - I'll search and read files automatically</li>
+                      <li>Ask me to <strong>modify</strong> code - I'll create a plan for your approval first</li>
+                      <li>I can create, edit, and delete files with your permission</li>
                     </ul>
                   </div>
                 )}
@@ -2515,7 +2511,7 @@ RESPONSE RULES:
                 )}
               </div>
             ) : (
-              <div className="flex flex-col space-y-2">
+              <div className="flex flex-col space-y-3">
                 <PendingEditsPanel
                   edits={pendingEdits}
                   onApply={(id) => applyPendingEdits([id])}
@@ -2567,7 +2563,7 @@ RESPONSE RULES:
         </ScrollArea>
       </div>
 
-      <div className="relative border-t border-[#3c3c3c] bg-[#252526] p-3 shrink-0">
+      <div className="relative border-t chat-border chat-surface p-3 shrink-0">
         <SettingsPanel
           model={model}
           setModel={setModel}
@@ -2590,18 +2586,18 @@ RESPONSE RULES:
                       : "Ask me to analyze or modify your code..."
                     : "Ask about your code..."
               }
-              className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none transition-colors"
+              className="w-full chat-surface-2 border chat-border rounded-2xl px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none chat-ring resize-none transition-colors"
               rows={2}
-              disabled={isLoading || (isPlanning && !input.toLowerCase().includes('approve'))}
+              disabled={isLoading}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading || (isPlanning && !input.toLowerCase().includes('approve'))}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-white transition-all ${!input.trim() || isLoading || (isPlanning && !input.toLowerCase().includes('approve'))
-                ? "bg-gray-600 cursor-not-allowed"
+              className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl text-white transition-all ${!input.trim() || isLoading || (isPlanning && !input.toLowerCase().includes('approve'))
+                ? "bg-[#2b2f35] cursor-not-allowed"
                 : agentMode === 'agent'
-                  ? "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg"
-                  : "bg-blue-600 hover:bg-blue-700"
+                  ? "chat-button shadow-lg"
+                  : "bg-[#2f80ed] hover:bg-[#256fd1]"
                 }`}
             >
               {isLoading ? (
@@ -2618,8 +2614,8 @@ RESPONSE RULES:
           <span className="font-mono">
             {agentMode === 'agent'
               ? isPlanning
-                ? "⏸️ Waiting for plan approval..."
-                : "⚡ Agent Mode: I'll analyze → plan → execute with your approval"
+                ? "â¸ï¸ Waiting for plan approval..."
+                : "âš¡ Agent Mode: I'll analyze â†’ plan â†’ execute with your approval"
               : "Press Enter to send, Shift+Enter for new line"
             }
           </span>
@@ -2627,12 +2623,12 @@ RESPONSE RULES:
             <span>{contextFiles.length} files in context</span>
             {pendingEdits.filter(e => !e.applied).length > 0 && (
               <span className="text-yellow-400 font-medium">
-                • {pendingEdits.filter(e => !e.applied).length} pending edits
+                â€¢ {pendingEdits.filter(e => !e.applied).length} pending edits
               </span>
             )}
             {currentPlan && currentPlan.status === 'draft' && (
               <span className="text-amber-400 font-medium animate-pulse">
-                • Plan awaiting approval
+                â€¢ Plan awaiting approval
               </span>
             )}
           </div>
@@ -2649,3 +2645,4 @@ RESPONSE RULES:
     </div>
   );
 }
+

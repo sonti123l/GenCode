@@ -238,7 +238,7 @@ export default function SourceControlPanel({ repoPath }: SourceControlPanelProps
     return (
         <div className="flex flex-col h-full bg-[#1e1e1e] text-[#cccccc] select-none text-[13px] font-sans">
             {/* Header */}
-            <div className="flex items-center justify-between px-3 h-[35px] border-b border-[#2d2d2d] shrink-0">
+            <div className="flex items-center justify-between px-3 h-8.75 border-b border-[#2d2d2d] shrink-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-[#cccccc]">
                         Source Control

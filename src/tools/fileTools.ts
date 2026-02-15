@@ -290,16 +290,13 @@ export const fileTools = {
 
   /**
    * Create a new file with the given content.
+   * FIXED: Now uses create_file command which handles parent directories
    */
   createFile: async (path: string, content: string): Promise<EditResult> => {
     try {
-      // Check if file exists
-      const existing = await fileTools.readFile(path);
-      if (!existing.error) {
-        return { success: false, path, error: "File already exists" };
-      }
-
-      await invoke("write_file_content", { path, content });
+      // Use create_file command instead of write_file_content
+      // This will create parent directories if needed
+      await invoke("create_file", { path, content });
 
       return {
         success: true,

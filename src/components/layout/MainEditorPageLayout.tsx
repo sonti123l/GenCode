@@ -17,6 +17,7 @@ import CodeGraphViewer from "../core/CodeGraphViewer";
 import GitHubSourceControl from "@/icons/source-control";
 import SourceControlPanel from "../git/SourceControlPanel";
 import DiffCodeEditorPage from "../core/DiffCodeEditorPage";
+import CodingAgent from "../core/CodingAgent";
 
 function IconSidebar({
   activeTab,
@@ -45,8 +46,8 @@ function IconSidebar({
               <button
                 onClick={() => setActiveTab(item.id)}
                 className={`p-2 rounded-md transition-colors ${activeTab === item.id
-                    ? "bg-white/20 text-white"
-                    : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                  ? "bg-white/20 text-white"
+                  : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
                   }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -122,6 +123,7 @@ export default function MainEditorPageLayout({ tree }: { tree: FileNode }) {
                     style={{ width: chatWidth }}
                   >
                     <ChatInterface />
+
                   </div>
                 </>
               )}

@@ -203,18 +203,36 @@ function parseEditBlocks(content: string): PendingEdit[] {
     }
   }
 
-  // Parse Create file blocks
-  const createRegex = /```\w*\s*\[([^\]]+\.(ts|tsx|js|jsx|py|rs|go|java|cpp|c|h|html|css|json|md))\]\s*create\n([\s\S]*?)```/g;
+  // Parse Create file blocks - IMPROVED REGEX
+  const createRegex = /```(\w*)\s*\[([^\]]+\.(ts|tsx|js|jsx|py|rs|go|java|cpp|c|h|html|css|json|md))\]\s*create\n([\s\S]*?)```/g;
   while ((match = createRegex.exec(content)) !== null) {
     edits.push({
       id: `edit-${Date.now()}-${Math.random()}`,
-      path: match[1],
+      path: match[2],
       original: '',
-      modified: match[3].trim(),
+      modified: match[4].trim(),
       description: 'Create new file',
       applied: false,
       type: 'create'
     });
+  }
+
+  // Also try simpler pattern without language tag
+  const simpleCreateRegex = /```\s*\[([^\]]+\.(ts|tsx|js|jsx|py|rs|go|java|cpp|c|h|html|css|json|md))\]\s*create\n([\s\S]*?)```/g;
+  while ((match = simpleCreateRegex.exec(content)) !== null) {
+    // Check if we already added this edit
+    const path = match[1];
+    if (!edits.some(e => e.path === path && e.type === 'create')) {
+      edits.push({
+        id: `edit-${Date.now()}-${Math.random()}`,
+        path: path,
+        original: '',
+        modified: match[3].trim(),
+        description: 'Create new file',
+        applied: false,
+        type: 'create'
+      });
+    }
   }
 
   return edits;
@@ -1218,7 +1236,7 @@ export default function ChatInterface() {
   // Agent mode state
   const [agentMode, setAgentMode] = useState<AgentMode>('agent');
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
-  const [autoApplyEdits, setAutoApplyEdits] = useState(false);
+  const [autoApplyEdits, setAutoApplyEdits] = useState(true); // Changed default to true
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [currentDiff, setCurrentDiff] = useState<{ path: string; diff: string } | null>(null);
 
@@ -1257,7 +1275,7 @@ export default function ChatInterface() {
     const modificationKeywords = [
       'modify', 'change', 'update', 'edit', 'fix', 'refactor',
       'improve', 'optimize', 'add', 'remove', 'delete', 'create',
-      'implement', 'write', 'generate', 'build'
+      'implement', 'write', 'generate', 'build', 'make', 'new file'
     ];
     const lowerQuery = query.toLowerCase();
     return modificationKeywords.some(keyword => lowerQuery.includes(keyword));
@@ -1419,7 +1437,119 @@ export default function ChatInterface() {
     };
   }, []);
 
-  // Auto-execute Cypher queries and handle plans
+  // CRITICAL FIX: Apply edits directly without relying on pendingEdits state
+  const applyEditsDirectly = async (edits: PendingEdit[]) => {
+    console.log(`Applying ${edits.length} edits directly...`, edits);
+    
+    for (const edit of edits) {
+      try {
+        if (edit.type === 'create') {
+          console.log("Creating file:", edit.path);
+          console.log("Content length:", edit.modified.length);
+          
+          // DIRECT INVOKE TO TAURI BACKEND
+          await invoke("create_file", {
+            path: edit.path,
+            content: edit.modified
+          });
+          
+          // Update pending edits status
+          setPendingEdits(prev => prev.map(e => 
+            e.id === edit.id ? { ...e, applied: true } : e
+          ));
+
+          // Add system message
+          const successMsg: Message = {
+            id: Date.now().toString(),
+            role: "system",
+            content: `✅ Created file: ${edit.path}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, successMsg]);
+
+          // Refresh directory if needed
+          const event = new CustomEvent('refresh-directory');
+          window.dispatchEvent(event);
+
+        } else if (edit.type === 'search_replace') {
+          console.log("Applying search/replace to:", edit.path);
+          
+          // Read current content
+          const fileData = await fileTools.readFile(edit.path);
+          if (fileData.error) {
+            throw new Error(fileData.error);
+          }
+
+          // Apply the replacement
+          const newContent = fileData.content.replace(edit.original, edit.modified);
+          
+          // DIRECT INVOKE TO TAURI BACKEND
+          await invoke("write_file_content", {
+            path: edit.path,
+            content: newContent
+          });
+
+          // Update pending edits
+          setPendingEdits(prev => prev.map(e => 
+            e.id === edit.id ? { ...e, applied: true } : e
+          ));
+
+          // Add system message
+          const successMsg: Message = {
+            id: Date.now().toString(),
+            role: "system",
+            content: `✅ Modified file: ${edit.path}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, successMsg]);
+
+          // Update context if file was in context
+          if (selectedFile === edit.path) {
+            setFileContent(newContent);
+          }
+
+        } else if (edit.type === 'delete') {
+          console.log("Deleting file:", edit.path);
+          
+          // DIRECT INVOKE TO TAURI BACKEND
+          await invoke("delete_file", { path: edit.path });
+          
+          setPendingEdits(prev => prev.map(e => 
+            e.id === edit.id ? { ...e, applied: true } : e
+          ));
+
+          const successMsg: Message = {
+            id: Date.now().toString(),
+            role: "system",
+            content: `✅ Deleted file: ${edit.path}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, successMsg]);
+        }
+      } catch (error) {
+        console.error("Failed to apply edit:", error);
+        
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          role: "system",
+          content: `❌ Failed to apply edit to ${edit.path}: ${error}`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      }
+    }
+  };
+
+  // Apply pending edits using the direct method
+  const applyPendingEdits = async (editIds?: string[]) => {
+    const toApply = editIds
+      ? pendingEdits.filter(e => editIds.includes(e.id) && !e.applied)
+      : pendingEdits.filter(e => !e.applied);
+
+    await applyEditsDirectly(toApply);
+  };
+
+  // Auto-execute Cypher queries and handle plans - FIXED VERSION
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
@@ -1431,7 +1561,6 @@ export default function ChatInterface() {
 
       // Check for plan in message
       if (lastMsg.content.includes('PLAN:') && isPlanning) {
-        // Don't auto-execute if we're waiting for plan approval
         return;
       }
 
@@ -1454,12 +1583,18 @@ export default function ChatInterface() {
         setIsAutoExecuting(false);
       }
 
-      // Parse and queue edit blocks
+      // Parse and queue edit blocks - CRITICAL FIX
       const edits = parseEditBlocks(lastMsg.content);
+      console.log("Parsed edits from message:", edits);
+      
       if (edits.length > 0) {
+        // Add to pending first for UI display
         setPendingEdits(prev => [...prev, ...edits]);
+        
+        // Then apply them immediately using the edits we just parsed
         if (autoApplyEdits) {
-          applyPendingEdits(edits.map(e => e.id));
+          console.log("Auto-applying edits...", edits);
+          await applyEditsDirectly(edits);
         }
       }
     };
@@ -1621,54 +1756,6 @@ export default function ChatInterface() {
     });
   }, []);
 
-  // Apply pending edits
-  const applyPendingEdits = async (editIds?: string[]) => {
-    const toApply = editIds
-      ? pendingEdits.filter(e => editIds.includes(e.id) && !e.applied)
-      : pendingEdits.filter(e => !e.applied);
-
-    for (const edit of toApply) {
-      try {
-        let result;
-        if (edit.type === 'search_replace') {
-          result = await fileTools.applySearchReplace(edit.path, edit.original, edit.modified, { fuzzy: true });
-        } else if (edit.type === 'create') {
-          result = await fileTools.createFile(edit.path, edit.modified);
-        } else if (edit.type === 'delete') {
-          result = await fileTools.deleteFile(edit.path);
-        }
-
-        if (result?.success) {
-          setPendingEdits(prev => prev.map(e => e.id === edit.id ? { ...e, applied: true } : e));
-
-          // Update context if file modified
-          if (result.newContent) {
-            setContextFiles(prev => {
-              const exists = prev.find(f => f.path === edit.path);
-              const ext = edit.path.split('.').pop() || 'plaintext';
-              const newContext: FileContext = {
-                path: edit.path,
-                content: result.newContent,
-                language: ext
-              };
-
-              if (exists) {
-                return prev.map(f => f.path === edit.path ? newContext : f);
-              }
-              return [...prev, newContext];
-            });
-
-            if (selectedFile === edit.path) {
-              setFileContent(result.newContent);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Failed to apply edit:", error);
-      }
-    }
-  };
-
   // Execute Cypher query and load files
   const handleExecuteQuery = async (query: string, isAuto: boolean = false) => {
     console.log("Executing Cypher Query:", query);
@@ -1677,7 +1764,7 @@ export default function ChatInterface() {
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: "âš ï¸ Neo4j is not connected. Please connect first.",
+        content: "⚠️ Neo4j is not connected. Please connect first.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -2124,7 +2211,7 @@ RESPONSE RULES:
       const successMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: `âœ… Successfully applied changes to ${block.fileName}`,
+        content: `✅ Successfully applied changes to ${block.fileName}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMsg]);
@@ -2132,7 +2219,7 @@ RESPONSE RULES:
       const errorMsg: Message = {
         id: Date.now().toString(),
         role: "system",
-        content: `âŒ Failed to apply changes: ${error}`,
+        content: `❌ Failed to apply changes: ${error}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -2157,14 +2244,6 @@ RESPONSE RULES:
       e.preventDefault();
       sendMessage(input);
     }
-  };
-
-  const removeContextFile = (path: string) => {
-    setContextFiles((prev) => prev.filter((f) => f.path !== path));
-  };
-
-  const clearContext = () => {
-    setContextFiles([]);
   };
 
   const handleNewConversation = () => {
@@ -2514,14 +2593,19 @@ RESPONSE RULES:
               <div className="flex flex-col space-y-3">
                 <PendingEditsPanel
                   edits={pendingEdits}
-                  onApply={(id) => applyPendingEdits([id])}
+                  onApply={(id) => {
+                    const edit = pendingEdits.find(e => e.id === id);
+                    if (edit) {
+                      applyEditsDirectly([edit]);
+                    }
+                  }}
                   onReject={(id) => setPendingEdits(prev => prev.filter(e => e.id !== id))}
                   onViewDiff={async (edit) => {
                     const diff = await generateDiffForEdit(edit);
                     setCurrentDiff({ path: edit.path, diff });
                     setShowDiffModal(true);
                   }}
-                  onApplyAll={() => applyPendingEdits()}
+                  onApplyAll={() => applyEditsDirectly(pendingEdits.filter(e => !e.applied))}
                   onRejectAll={() => setPendingEdits([])}
                 />
 
@@ -2614,8 +2698,8 @@ RESPONSE RULES:
           <span className="font-mono">
             {agentMode === 'agent'
               ? isPlanning
-                ? "â¸ï¸ Waiting for plan approval..."
-                : "âš¡ Agent Mode: I'll analyze â†’ plan â†’ execute with your approval"
+                ? "⏸️ Waiting for plan approval..."
+                : "⚡ Agent Mode: I'll analyze → plan → execute with your approval"
               : "Press Enter to send, Shift+Enter for new line"
             }
           </span>
@@ -2623,12 +2707,12 @@ RESPONSE RULES:
             <span>{contextFiles.length} files in context</span>
             {pendingEdits.filter(e => !e.applied).length > 0 && (
               <span className="text-yellow-400 font-medium">
-                â€¢ {pendingEdits.filter(e => !e.applied).length} pending edits
+                • {pendingEdits.filter(e => !e.applied).length} pending edits
               </span>
             )}
             {currentPlan && currentPlan.status === 'draft' && (
               <span className="text-amber-400 font-medium animate-pulse">
-                â€¢ Plan awaiting approval
+                • Plan awaiting approval
               </span>
             )}
           </div>
@@ -2645,4 +2729,3 @@ RESPONSE RULES:
     </div>
   );
 }
-
